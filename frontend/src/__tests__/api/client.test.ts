@@ -1,9 +1,16 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import type { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+
+interface AxiosErrorLike {
+  config?: object;
+  isAxiosError?: boolean;
+  response?: { status: number };
+}
 
 // Track interceptor handlers for later testing
-let requestHandler: ((config: any) => any) | null = null;
-let responseSuccessHandler: ((res: any) => any) | null = null;
-let responseErrorHandler: ((err: any) => any) | null = null;
+let requestHandler: ((config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig) | null = null;
+let responseSuccessHandler: ((res: AxiosResponse) => AxiosResponse) | null = null;
+let responseErrorHandler: ((err: AxiosErrorLike) => Promise<never>) | null = null;
 
 // Mock axios before importing client
 vi.mock('axios', () => {
@@ -11,7 +18,7 @@ vi.mock('axios', () => {
     defaults: {},
     interceptors: {
       request: {
-        use: vi.fn((handler: any) => {
+        use: vi.fn((handler: (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig) => {
           requestHandler = handler;
           return 0;
         }),
@@ -19,7 +26,7 @@ vi.mock('axios', () => {
         clear: vi.fn(),
       },
       response: {
-        use: vi.fn((onFulfilled: any, onRejected: any) => {
+        use: vi.fn((onFulfilled: (res: AxiosResponse) => AxiosResponse, onRejected: (err: AxiosErrorLike) => Promise<never>) => {
           responseSuccessHandler = onFulfilled;
           responseErrorHandler = onRejected;
           return 0;
@@ -108,8 +115,10 @@ describe('API client', () => {
 
       // Mock window.location.href
       const originalLocation = window.location;
-      delete (window as any).location;
-      (window as any).location = { href: '' };
+      Object.defineProperty(window, 'location', {
+        value: { href: '' },
+        writable: true,
+      });
 
       const error = {
         response: { status: 401 },
@@ -117,12 +126,15 @@ describe('API client', () => {
         isAxiosError: true,
       };
 
-      await expect(responseErrorHandler!(error)).rejects.toBe(error);
+      await expect(responseErrorHandler!(error as AxiosErrorLike)).rejects.toBe(error);
       expect(localStorage.getItem('token')).toBeNull();
       expect(window.location.href).toBe('/login');
 
       // Restore location
-      (window as any).location = originalLocation;
+      Object.defineProperty(window, 'location', {
+        value: originalLocation,
+        writable: true,
+      });
     });
 
     it('does not redirect or clear token on non-401 errors', async () => {
@@ -142,10 +154,10 @@ describe('API client', () => {
     it('rejects the error promise even without a response object', async () => {
       await import('../../api/client');
 
-      const error = new Error('Network Error');
-      (error as any).config = {};
-      (error as any).isAxiosError = true;
-      (error as any).response = undefined;
+      const error: AxiosErrorLike = new Error('Network Error');
+      error.config = {};
+      error.isAxiosError = true;
+      error.response = undefined;
 
       await expect(responseErrorHandler!(error)).rejects.toBe(error);
     });
