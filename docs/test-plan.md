@@ -1,6 +1,6 @@
 # 测试计划
 
-> 文档版本: v2.0 | 最后更新: 2026-05-26
+> 文档版本: v3.0 | 最后更新: 2026-05-27
 
 ---
 
@@ -26,9 +26,10 @@
 |----|---------|------|------|
 | `handler` | `handler_test.go` | 1,029 行 | ✅ 集成测试, 覆盖全 CRUD + Analytics + Auth + Ledger/Transaction 端点 |
 | `handler` | `handler_sprint2_test.go` | 344 行 | ✅ Sprint 2 新增功能 (批量操作/导出/日历/标签/设置) |
+| `handler` | `handler_sprint3_test.go` | 570 行 | ⚠️ 31 个测试, 21 个完整 + 7 个空 stub + 3 个缺断言 (见缺口分析) |
 | `middleware` | `auth_test.go` | 217 行 | ✅ JWT 解析、Token 黑名单、Authorization header 检查 |
 | `service` | `exchange_test.go` | 423 行 | ✅ 汇率正向/反向计算、缓存读写、DB miss 降级 |
-| `task` | `tasks_test.go` | 545 行 | ✅ CSV/JSON 导入导出、分批写入、格式校验 |
+| `task` | `tasks_test.go` | 603 行 | ✅ CSV/JSON 导入导出 + 调度器 mock 测试 |
 | `cache/memory` | `memory_test.go` | 182 行 | ✅ 100% 纯内存，独立可并行 |
 | `cache/tiered` | `tiered_test.go` | 211 行 | ✅ 纯内存，含故障降级 |
 | `cache/edge` | `cache_edge_test.go` | 278 行 | ✅ 边缘场景：并发、过期、淘汰 |
@@ -42,13 +43,14 @@
 
 | 区域 | 现状 | 风险 |
 |------|------|------|
-| Handler 层 | 覆盖全 CRUD + Analytics + Auth + Sprint 2 功能 (1,029+344 行) | ✅ 已闭环, 持续关注新增功能 |
-| Service 层 | 汇率计算单元测试覆盖 (exchange_test.go 423 行) | ✅ 已闭环 |
-| Middleware 层 | JWT/Token 黑名单/Header 检查覆盖 (auth_test.go 217 行) | ✅ 已闭环 |
-| Task 层 | CSV/JSON 导入导出批量处理覆盖 (tasks_test.go 545 行) | ✅ 已闭环 |
-| 前端 | Zustand store / Axios client / 货币工具函数测试 (3 文件, 451 行) | ⚠️ 仅工具层, 缺组件测试 |
+| Handler 层 | v1/v2 CRUD + Analytics + Auth 完整覆盖 (1,029+344 行) | ✅ 已闭环 |
+| Handler Sprint 3 | 31 个测试, 21 个完整, **10 个缺失/不完整** (见 §6) | ⚠️ 7 个空函数 + 3 个缺断言 |
+| Service 层 | 汇率测试覆盖 (exchange_test.go 423 行) | ⚠️ OCR/report/rate_updater 无测试 |
+| Task 层 | CSV/JSON/调度器 mock 覆盖 (603 行) | ⚠️ scheduler goroutine 逻辑未直接测试 |
+| Middleware | JWT/Token 黑名单/Header 检查 (217 行) | ✅ 已闭环 |
+| 前端 | Zustand / Axios / 货币工具 (3 文件) | ⚠️ 缺组件测试 (BudgetPage/RecurringPage 等新页面) |
 | 配置加载 | 无测试 | ⚠️ 低风险, 配置变更频率低 |
-| CI | 基本 lint + build | ⚠️ 缺覆盖率报告门禁、并行化 |
+| CI | 基本 lint + build | ⚠️ 缺覆盖率报告门禁 |
 
 ---
 
@@ -107,13 +109,14 @@ backend/
 │   │   ├── handler/
 │   │   │   ├── handler_test.go              # 集成测试: 全 CRUD + Analytics + Auth (1,029 行)
 │   │   │   ├── handler_sprint2_test.go       # Sprint 2 功能测试 (344 行)
+│   │   │   ├── handler_sprint3_test.go       # Sprint 3 测试 (570 行, 含 10 个 stub)
 │   │   │   └── testutil_test.go              # 测试辅助工具
 │   │   ├── middleware/
 │   │   │   └── auth_test.go                  # JWT/Token 黑名单 (217 行)
 │   │   ├── service/
 │   │   │   └── exchange_test.go              # 汇率服务 (423 行)
 │   │   └── task/
-│   │       └── tasks_test.go                 # 导入导出任务 (545 行)
+│   │       └── tasks_test.go                 # 导入导出 + 调度器 mock (603 行)
 │   └── infra/
 │       ├── cache/
 │       │   ├── memory_test.go                # 内存缓存 (182 行)
@@ -223,8 +226,53 @@ if testing.Short() {
 - [x] Go 测试 CI job (go test -race)
 - [x] 前端测试 CI job (vitest)
 - [ ] 覆盖率报告门禁
-- [ ] go-vet 增强检查
 - [ ] E2E 测试 (Docker Compose)
+
+### Phase 6 — v3.0 测试补全（待完成）
+- [ ] 填充 7 个空 stub (见 §6)
+- [ ] 补全 3 个缺断言测试 (见 §6)
+- [ ] Service 层: OCR 单元测试 (ocr.go)
+- [ ] Service 层: 报表单元测试 (report.go)
+- [ ] Service 层: 汇率自动更新测试 (rate_updater.go)
+- [ ] Task 层: 调度器 goroutine 逻辑测试
+- [ ] 前端: BudgetPage / RecurringPage 组件测试
+
+---
+
+## 6. Sprint 3 测试 stub 清单
+
+`backend/internal/app/handler/handler_sprint3_test.go` 中存在 10 个未完成的测试:
+
+### 7 个空函数 (仅有函数签名 + 注释)
+
+| # | 函数 | 行号 | 预期验证 |
+|---|------|------|---------|
+| 1 | `TestRecurringUpdate_Frequency` | 269 | 更新频率 monthly → weekly 后 GET 验证新频率 |
+| 2 | `TestRecurringUpdate_Unauthorized` | 286 | 其他用户的规则不可编辑 → 404 |
+| 3 | `TestRecurringDelete_Unauthorized` | 322 | 无 token → 401 |
+| 4 | `TestBudgetCreate_NegativeAmount` | 405 | 负值预算 → 400 |
+| 5 | `TestBudgetCreate_InvalidCategory` | 409 | 不存在的分类 ID → 400/404 |
+| 6 | `TestBudgetCreate_InvalidMonth` | 413 | 无效月份格式 → 400 |
+| 7 | `TestBudgetList_MissingMonth` | 454 | 缺少 month 参数 → 400 |
+
+### 3 个部分 stub (有 setup + 调用, 缺断言验证)
+
+| # | 函数 | 行号 | 缺失断言 |
+|---|------|------|---------|
+| 1 | `TestRecurringList` | 214 | 验证返回数组长度 ≥ 2 |
+| 2 | `TestBudgetStatus_Normal` | 465 | 验证 amount==2000, spent==850, percentage~42.5 |
+| 3 | `TestBudgetStatus_OverBudget` | 482 | 验证 percentage > 100, over_budget=true |
+
+### 其他未覆盖模块
+
+| 模块 | 文件 | 建议 |
+|------|------|------|
+| OCR 服务 | `service/ocr.go` | mock HTTP 调用, 测试金额/日期/商家提取逻辑 |
+| 报表服务 | `service/report.go` | mock DB, 测试 FPDF 生成 + 数据聚合 |
+| 汇率更新 | `service/rate_updater.go` | mock HTTP 客户端, 测试 API 调用 + DB 写入 |
+| 调度器 | `task/scheduler.go` | 通过 mock queue 验证 dispatch 逻辑和同天去重 |
+| 前端 BudgetPage | `pages/BudgetPage.tsx` | 测试表单提交、状态显示、超预算告警 |
+| 前端 RecurringPage | `pages/RecurringPage.tsx` | 测试规则 CRUD、周期选择、upcoming 列表 |
 
 ---
 
