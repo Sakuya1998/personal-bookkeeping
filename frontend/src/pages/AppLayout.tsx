@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Menu, Select, Button, Dropdown, message } from 'antd';
+import { Layout, Menu, Select, Button, Dropdown } from 'antd';
 import {
   DashboardOutlined, WalletOutlined, TransactionOutlined, AppstoreOutlined,
   DollarOutlined, SettingOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
@@ -30,6 +30,7 @@ const AppLayout: React.FC = () => {
     client.get<ApiResponse<Ledger[]>>('/ledgers').then((res) => {
       setLedgers(res.data.data);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const menuItems = [

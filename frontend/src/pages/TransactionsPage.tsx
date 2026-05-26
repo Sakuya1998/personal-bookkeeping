@@ -3,7 +3,7 @@ import { Card, Table, Button, Modal, Form, Input, Select, DatePicker, Tag, Space
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import client from '../api/client';
-import { ApiResponse, PaginatedData, Transaction, Category, Ledger } from '../api/types';
+import { ApiResponse, PaginatedData, Transaction, Category } from '../api/types';
 import { useAppStore } from '../store/appStore';
 import { CURRENCIES, formatCurrency } from '../utils/currency';
 
@@ -34,20 +34,32 @@ const TransactionsPage: React.FC = () => {
     }
   }, [currentLedger, page, pageSize, filters]);
 
-  const loadCategories = async () => {
+  useEffect(() => {
     if (!currentLedger) return;
-    const res = await client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`);
-    setCategories(res.data.data);
-  };
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
+    const loadId = setTimeout(() => setLoading(true), 0);
+    client.get<ApiResponse<PaginatedData<Transaction>>>(`/ledgers/${currentLedger.id}/transactions?${params}`)
+      .then((res) => {
+        clearTimeout(loadId);
+        setTxns(res.data.data.items);
+        setTotal(res.data.data.total);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`)
+      .then((res) => {
+        setCategories(res.data.data);
+      });
+  }, [currentLedger, page, pageSize, filters]);
 
-  useEffect(() => { loadTxns(); loadCategories(); }, [currentLedger, page]);
-
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
     const data = {
       ...values,
       ledger_id: currentLedger!.id,
-      transaction_date: values.transaction_date.format('YYYY-MM-DD'),
-      tags: values.tags || [],
+      transaction_date: (values.transaction_date as dayjs.Dayjs).format('YYYY-MM-DD'),
+      tags: (values.tags as string[]) || [],
     };
     try {
       if (editing) {
@@ -61,8 +73,9 @@ const TransactionsPage: React.FC = () => {
       setEditing(null);
       form.resetFields();
       loadTxns();
-    } catch (err: any) {
-      message.error(err.response?.data?.message || '操作失败');
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '操作失败');
     }
   };
 
@@ -91,7 +104,7 @@ const TransactionsPage: React.FC = () => {
 
   const columns = [
     { title: '日期', dataIndex: 'transaction_date', key: 'date', width: 110 },
-    { title: '分类', key: 'category', width: 120, render: (_: any, r: Transaction) => {
+    { title: '分类', key: 'category', width: 120, render: (_, r: Transaction) => {
       const cat = r.category;
       return cat ? `${cat.icon || ''} ${cat.name}` : '-';
     }},
@@ -99,7 +112,7 @@ const TransactionsPage: React.FC = () => {
       render: (t: string) => <Tag color={t === 'income' ? 'green' : 'red'}>{t === 'income' ? '收入' : '支出'}</Tag>,
     },
     { title: '金额', key: 'amount', width: 150,
-      render: (_: any, r: Transaction) => {
+      render: (_, r: Transaction) => {
         const cur = currentLedger?.base_currency || 'CNY';
         return (
           <span style={{ color: r.type === 'income' ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}>
@@ -112,7 +125,7 @@ const TransactionsPage: React.FC = () => {
     { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true },
     {
       title: '操作', key: 'action', width: 100,
-      render: (_: any, r: Transaction) => (
+      render: (_, r: Transaction) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
           <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>

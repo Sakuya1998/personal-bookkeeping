@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Tabs, Table, Button, Modal, Form, Input, Select, Space, Popconfirm, message, Empty } from 'antd';
+import { Tabs, Table, Button, Modal, Form, Input, Space, Popconfirm, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import client from '../api/client';
 import { ApiResponse, Category } from '../api/types';
@@ -21,9 +21,16 @@ const CategoriesPage: React.FC = () => {
     setExpense(res.data.data.filter((c: Category) => c.type === 'expense'));
   };
 
-  useEffect(() => { load(); }, [currentLedger]);
+  useEffect(() => {
+    if (currentLedger) {
+      client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`).then((res) => {
+        setIncome(res.data.data.filter((c: Category) => c.type === 'income'));
+        setExpense(res.data.data.filter((c: Category) => c.type === 'expense'));
+      });
+    }
+  }, [currentLedger]);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
     try {
       const data = { ...values, type };
       if (editing) {
@@ -37,8 +44,9 @@ const CategoriesPage: React.FC = () => {
       setEditing(null);
       form.resetFields();
       load();
-    } catch (err: any) {
-      message.error(err.response?.data?.message || '操作失败');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      message.error(e.response?.data?.message || '操作失败');
     }
   };
 
@@ -47,8 +55,9 @@ const CategoriesPage: React.FC = () => {
       await client.delete(`/categories/${id}`);
       message.success('删除成功');
       load();
-    } catch (err: any) {
-      message.error(err.response?.data?.message || '删除失败');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      message.error(e.response?.data?.message || '删除失败');
     }
   };
 
@@ -58,7 +67,7 @@ const CategoriesPage: React.FC = () => {
     { title: '排序', dataIndex: 'sort_order', key: 'sort', width: 60 },
     {
       title: '操作', key: 'action', width: 100,
-      render: (_: any, r: Category) => (
+      render: (_: unknown, r: Category) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => { setEditing(r); form.setFieldsValue(r); setModalOpen(true); }} />
           <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>

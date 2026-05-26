@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Space, Popconfirm, message } from 'antd';
+import { Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Popconfirm, message } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import client from '../api/client';
@@ -11,32 +11,36 @@ const ExchangeRatesPage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
 
-  const load = async () => {
-    const res = await client.get<ApiResponse<ExchangeRate[]>>('/exchange-rates');
-    setRates(res.data.data);
-  };
+  useEffect(() => {
+    client.get<ApiResponse<ExchangeRate[]>>('/exchange-rates').then((res) => {
+      setRates(res.data.data);
+    });
+  }, []);
 
-  useEffect(() => { load(); }, []);
-
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
     try {
       await client.post('/exchange-rates', {
         ...values,
-        date: values.date.format('YYYY-MM-DD'),
+        date: (values.date as dayjs.Dayjs).format('YYYY-MM-DD'),
       });
       message.success('保存成功');
       setModalOpen(false);
       form.resetFields();
-      load();
-    } catch (err: any) {
-      message.error(err.response?.data?.message || '操作失败');
+      client.get<ApiResponse<ExchangeRate[]>>('/exchange-rates').then((res) => {
+        setRates(res.data.data);
+      });
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '操作失败');
     }
   };
 
   const handleDelete = async (id: string) => {
     await client.delete(`/exchange-rates/${id}`);
     message.success('删除成功');
-    load();
+    client.get<ApiResponse<ExchangeRate[]>>('/exchange-rates').then((res) => {
+      setRates(res.data.data);
+    });
   };
 
   const currencyOpts = CURRENCIES.map(c => ({ label: `${c.symbol} ${c.code}`, value: c.code }));
@@ -49,7 +53,7 @@ const ExchangeRatesPage: React.FC = () => {
     { title: '来源', dataIndex: 'source', key: 'source' },
     {
       title: '操作', key: 'action', width: 80,
-      render: (_: any, r: ExchangeRate) => (
+      render: (_, r: ExchangeRate) => (
         <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>
           <Button size="small" danger icon={<DeleteOutlined />} />
         </Popconfirm>

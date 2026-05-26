@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Row, Col, Button, Modal, Form, Input, Select, Tag, Popconfirm, message, Empty } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WalletOutlined } from '@ant-design/icons';
 import client from '../api/client';
@@ -13,16 +13,16 @@ const LedgersPage: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadLedgers();
-  }, []);
-
-  const loadLedgers = async () => {
+  const loadLedgers = useCallback(async () => {
     const res = await client.get<ApiResponse<Ledger[]>>('/ledgers');
     setLedgers(res.data.data);
-  };
+  }, [setLedgers]);
 
-  const handleSubmit = async (values: any) => {
+  useEffect(() => {
+    loadLedgers();
+  }, [loadLedgers]);
+
+  const handleSubmit = async (values: Record<string, unknown>) => {
     setLoading(true);
     try {
       if (editing) {
@@ -36,8 +36,9 @@ const LedgersPage: React.FC = () => {
       setEditing(null);
       form.resetFields();
       loadLedgers();
-    } catch (err: any) {
-      message.error(err.response?.data?.message || '操作失败');
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '操作失败');
     } finally {
       setLoading(false);
     }
@@ -51,8 +52,9 @@ const LedgersPage: React.FC = () => {
         setCurrentLedger(null);
       }
       loadLedgers();
-    } catch (err: any) {
-      message.error(err.response?.data?.message || '删除失败');
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '删除失败');
     }
   };
 

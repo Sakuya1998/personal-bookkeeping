@@ -20,8 +20,9 @@ const LoginPage: React.FC = () => {
       setUser(res.data.data.user);
       message.success('登录成功');
       navigate('/');
-    } catch (err: any) {
-      message.error(err.response?.data?.message || '登录失败');
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '登录失败');
     } finally {
       setLoading(false);
     }
@@ -35,8 +36,9 @@ const LoginPage: React.FC = () => {
       setUser(res.data.data.user);
       message.success('注册成功');
       navigate('/');
-    } catch (err: any) {
-      message.error(err.response?.data?.message || '注册失败');
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '注册失败');
     } finally {
       setLoading(false);
     }

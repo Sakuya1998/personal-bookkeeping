@@ -1,13 +1,11 @@
 import React from 'react';
 import { Card, Form, Input, Button, message } from 'antd';
-import client from '../api/client';
-import { ApiResponse, User } from '../api/types';
 import { useAppStore } from '../store/appStore';
 
 const SettingsPage: React.FC = () => {
-  const { user, setUser } = useAppStore();
+  const { user } = useAppStore();
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = () => {
     // Settings page - future implementation for user profile updates
     message.info('设置保存功能开发中');
   };
