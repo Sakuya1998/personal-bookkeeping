@@ -1,0 +1,878 @@
+basePath: /api/v1
+definitions:
+  handlers.CategorySummary:
+    properties:
+      category_icon:
+        type: string
+      category_id:
+        type: string
+      category_name:
+        type: string
+      count:
+        type: integer
+      total:
+        type: number
+    type: object
+  handlers.CreateCategoryInput:
+    properties:
+      color:
+        type: string
+      icon:
+        example: "\U0001F37D️"
+        type: string
+      ledger_id:
+        type: string
+      name:
+        example: 餐饮
+        maxLength: 50
+        type: string
+      parent_id:
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        example: expense
+        type: string
+    required:
+    - name
+    - type
+    type: object
+  handlers.CreateExchangeRateInput:
+    properties:
+      date:
+        example: "2024-01-15"
+        type: string
+      from_currency:
+        example: USD
+        type: string
+      rate:
+        example: 7.24
+        type: number
+      source:
+        example: bank-of-china
+        type: string
+      to_currency:
+        example: CNY
+        type: string
+    required:
+    - from_currency
+    - rate
+    - to_currency
+    type: object
+  handlers.CreateLedgerInput:
+    properties:
+      base_currency:
+        example: CNY
+        type: string
+      color:
+        example: '#1890ff'
+        type: string
+      description:
+        example: 日常收支记录
+        type: string
+      icon:
+        example: "\U0001F4D2"
+        type: string
+      name:
+        example: 日常账本
+        maxLength: 100
+        type: string
+    required:
+    - name
+    type: object
+  handlers.CreateTransactionInput:
+    properties:
+      amount:
+        example: 29.9
+        type: number
+      category_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      currency:
+        example: CNY
+        type: string
+      description:
+        example: 午餐
+        type: string
+      ledger_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      tags:
+        example:
+        - '["午餐"'
+        - '"外卖"]'
+        items:
+          type: string
+        type: array
+      transaction_date:
+        example: "2024-01-15"
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        example: expense
+        type: string
+    required:
+    - amount
+    - category_id
+    - ledger_id
+    - type
+    type: object
+  handlers.LoginInput:
+    properties:
+      password:
+        example: secret123
+        type: string
+      username:
+        example: alice
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  handlers.RegisterInput:
+    properties:
+      email:
+        example: alice@example.com
+        maxLength: 100
+        type: string
+      password:
+        example: secret123
+        maxLength: 100
+        minLength: 6
+        type: string
+      username:
+        example: alice
+        maxLength: 50
+        minLength: 2
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  handlers.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  handlers.UpdateCategoryInput:
+    properties:
+      color:
+        type: string
+      icon:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      parent_id:
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        type: string
+    type: object
+  handlers.UpdateLedgerInput:
+    properties:
+      base_currency:
+        type: string
+      color:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      is_archived:
+        type: boolean
+      name:
+        example: 新账本名
+        type: string
+      sort_order:
+        type: integer
+    type: object
+  handlers.UpdateTransactionInput:
+    properties:
+      amount:
+        type: number
+      category_id:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      is_reconciled:
+        type: boolean
+      tags:
+        items:
+          type: string
+        type: array
+      transaction_date:
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        type: string
+    type: object
+  handlers.authResponse:
+    properties:
+      token:
+        example: eyJ...
+        type: string
+      user:
+        $ref: '#/definitions/handlers.userResponse'
+    type: object
+  handlers.ledgerSummary:
+    properties:
+      balance:
+        type: number
+      base_currency:
+        example: CNY
+        type: string
+      expense_by_category:
+        items:
+          $ref: '#/definitions/handlers.CategorySummary'
+        type: array
+      total_expense:
+        type: number
+      total_income:
+        type: number
+    type: object
+  handlers.transactionList:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.Transaction'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  handlers.userResponse:
+    properties:
+      created_at:
+        example: "2024-01-01T00:00:00Z"
+        type: string
+      email:
+        example: alice@example.com
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      is_active:
+        type: boolean
+      username:
+        example: alice
+        type: string
+    type: object
+  models.Category:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/models.Category'
+        type: array
+      color:
+        type: string
+      created_at:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      ledger_id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+      sort_order:
+        type: integer
+      type:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.Transaction:
+    properties:
+      amount:
+        type: number
+      base_amount:
+        type: number
+      category:
+        $ref: '#/definitions/models.Category'
+      category_id:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      exchange_rate:
+        type: number
+      id:
+        type: string
+      is_reconciled:
+        type: boolean
+      ledger_id:
+        type: string
+      tags:
+        description: JSON array stored as string
+        type: string
+      transaction_date:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+host: localhost:8000
+info:
+  contact:
+    email: dev@example.com
+    name: Developer
+  description: 个人记账应用后端 API
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://github.com/your-repo
+  title: Personal Bookkeeping API
+  version: 1.0.0
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 登录信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handlers.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.authResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      summary: 用户登录
+      tags:
+      - auth
+  /auth/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handlers.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.userResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 当前用户信息
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 注册信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/handlers.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.authResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      summary: 注册新用户
+      tags:
+      - auth
+  /categories:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 分类信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateCategoryInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建分类
+      tags:
+      - categories
+  /categories/{id}:
+    delete:
+      parameters:
+      - description: 分类 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除分类
+      tags:
+      - categories
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 分类 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新内容
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateCategoryInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新分类
+      tags:
+      - categories
+  /exchange-rates:
+    get:
+      parameters:
+      - description: 日期筛选 2006-01-02
+        in: query
+        name: date
+        type: string
+      - description: 源币种
+        in: query
+        name: from
+        type: string
+      - description: 目标币种
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 汇率列表
+      tags:
+      - exchange-rates
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 汇率信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateExchangeRateInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建汇率（同日期+币种自动覆盖）
+      tags:
+      - exchange-rates
+  /exchange-rates/{id}:
+    delete:
+      parameters:
+      - description: 汇率 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除汇率
+      tags:
+      - exchange-rates
+  /exchange-rates/latest:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 最新汇率（每种币对一条）
+      tags:
+      - exchange-rates
+  /ledgers:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 账本列表
+      tags:
+      - ledgers
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 账本信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateLedgerInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建账本
+      tags:
+      - ledgers
+  /ledgers/{id}:
+    delete:
+      parameters:
+      - description: 账本 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除账本
+      tags:
+      - ledgers
+    get:
+      parameters:
+      - description: 账本 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 账本详情
+      tags:
+      - ledgers
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 账本 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新内容
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateLedgerInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新账本
+      tags:
+      - ledgers
+  /ledgers/{id}/summary:
+    get:
+      parameters:
+      - description: 账本 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handlers.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.ledgerSummary'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 账本汇总
+      tags:
+      - ledgers
+  /ledgers/{ledger_id}/categories:
+    get:
+      parameters:
+      - description: 账本 ID
+        in: path
+        name: ledger_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 分类列表（树形）
+      tags:
+      - categories
+  /ledgers/{ledger_id}/transactions:
+    get:
+      parameters:
+      - description: 账本 ID
+        in: path
+        name: ledger_id
+        required: true
+        type: string
+      - description: 筛选：income/expense
+        in: query
+        name: type
+        type: string
+      - description: 分类 ID
+        in: query
+        name: category_id
+        type: string
+      - description: 开始日期 2006-01-02
+        in: query
+        name: start_date
+        type: string
+      - description: 结束日期 2006-01-02
+        in: query
+        name: end_date
+        type: string
+      - description: 描述关键词搜索
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/handlers.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.transactionList'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 交易记录列表
+      tags:
+      - transactions
+  /transactions:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 交易信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateTransactionInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建交易记录
+      tags:
+      - transactions
+  /transactions/{id}:
+    delete:
+      parameters:
+      - description: 交易 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除交易记录
+      tags:
+      - transactions
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 交易 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新内容
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateTransactionInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新交易记录
+      tags:
+      - transactions
+securityDefinitions:
+  BearerAuth:
+    description: 'JWT token，格式: Bearer <token>'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

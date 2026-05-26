@@ -1,0 +1,61 @@
+server:
+  port: "8000"
+
+db:
+  host: "localhost"
+  port: "5432"
+  user: "bookkeeper"
+  password: "bookkeeper_dev"
+  name: "bookkeeping"
+  sslmode: "disable"
+
+jwt:
+  secret: "dev-secret-key-change-in-production"
+  expire_minutes: 10080
+
+cors:
+  origins: "http://localhost:5173,http://localhost:3000"
+
+log:
+  target: file           # file | stdout | stderr | both
+  dir: logs
+  info: app.log
+  warn: warn.log
+  error: error.log
+  max_size: 100          # MB
+  max_age: 30            # 保留天数
+  max_backups: 10        # 旧文件数
+  compress: true         # gzip
+
+cache:
+  type: "memory"                # memory | redis | tiered
+  ttl: 300                      # default TTL seconds (used as L2 TTL in tiered mode)
+  l1_ttl: 30                    # L1 TTL for tiered mode (seconds)
+  max_l1_items: 10000           # L1 max entries (FIFO eviction)
+  redis:
+    addr: "localhost:6379"
+    password: ""
+    db: 0
+
+queue:
+  enabled: false
+  type: "redis"                 # redis | kafka
+  workers: 5
+  max_retries: 3
+  redis:
+    addr: "localhost:6379"
+    password: ""
+    db: 0
+    stream: "task-queue"
+    consumer_group: "workers"
+  kafka:
+    brokers:
+      - "localhost:9092"
+    topic: "task-queue"
+    group_id: "workers"
+
+otel:
+  enabled: false
+  service_name: "personal-bookkeeping"
+  traces_exporter: "none"       # none | stdout
+  metrics_path: "/metrics"

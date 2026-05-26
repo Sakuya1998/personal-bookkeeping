@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bookkeeping
+      POSTGRES_USER: bookkeeper
+      POSTGRES_PASSWORD: bookkeeper_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookkeeper -d bookkeeping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: bookkeeper
+      DB_PASSWORD: bookkeeper_dev
+      DB_NAME: bookkeeping
+      DB_SSLMODE: disable
+      SERVER_PORT: "8000"
+      JWT_SECRET: change-this-in-production
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      CACHE_TYPE: redis
+      CACHE_REDIS_ADDR: redis:6379
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  pgdata:

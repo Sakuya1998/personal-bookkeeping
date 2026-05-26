@@ -1,0 +1,45 @@
+# OS
+.DS_Store
+Thumbs.db
+.Directory
+*.swp
+*.swo
+
+# Backend
+backend/.env
+backend/server
+backend/logs/
+backend/tmp/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.npmrc
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Go
+*.exe
+*.test
+*.out
+*.exe~
+
+# Go cache (from CI/build env)
+.gocache/
+.gomodcache/
+
+# Runtime
+*.log
+logs/
+
+# Docker
+.docker/
+
+# Misc
+*.bak
+*.orig
+*~
+.DS_Store?
