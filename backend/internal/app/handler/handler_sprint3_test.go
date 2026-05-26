@@ -214,11 +214,11 @@ func TestRecurringCreate_Unauthorized(t *testing.T) {
 func TestRecurringList(t *testing.T) {
 	r := testEngine(t)
 	token := getToken(t, r, "rec_list_"+t.Name(), "testpass123")
-	_, _ = setupLedgerAndCategory(t, r, token)
+	ledgerID, catID := setupLedgerAndCategory(t, r, token)
 
 	// Create 2 rules
-	// ... create first ...
-	// ... create second ...
+	createRecurring(t, r, token, ledgerID, catID, "expense", 100, "monthly")
+	createRecurring(t, r, token, ledgerID, catID, "expense", 200, "weekly")
 
 	// List all rules for the user
 	w := httptest.NewRecorder()
@@ -227,6 +227,15 @@ func TestRecurringList(t *testing.T) {
 		t.Fatalf("list recurring: expected 200, got %d", w.Code)
 	}
 	// Verify response is an array with 2+ items
+	var listResp struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &listResp)
+	if len(listResp.Data) < 2 {
+		t.Fatalf("expected at least 2 rules, got %d", len(listResp.Data))
+	}
 }
 
 func TestRecurringList_Empty(t *testing.T) {
@@ -268,6 +277,43 @@ func TestRecurringUpdate_Amount(t *testing.T) {
 
 func TestRecurringUpdate_Frequency(t *testing.T) {
 	// 更新频率从 monthly → weekly
+	r := testEngine(t)
+	token := getToken(t, r, "rec_upd2_"+t.Name(), "testpass123")
+	ledgerID, catID := setupLedgerAndCategory(t, r, token)
+
+	// Create rule with monthly frequency
+	ruleID := createRecurring(t, r, token, ledgerID, catID, "expense", 100, "monthly")
+
+	// Update frequency to weekly
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("PUT", "/api/v1/recurring/"+ruleID, token,
+		map[string]interface{}{"frequency": "weekly"}))
+	if w.Code != http.StatusOK {
+		t.Fatalf("update frequency: expected 200, got %d", w.Code)
+	}
+
+	// GET /api/v1/recurring to verify frequency changed
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("GET", "/api/v1/recurring", token, nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("list recurring: expected 200, got %d", w.Code)
+	}
+	var listResp struct {
+		Data []struct {
+			ID        string `json:"id"`
+			Frequency string `json:"frequency"`
+		} `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &listResp)
+	for _, rule := range listResp.Data {
+		if rule.ID == ruleID {
+			if rule.Frequency != "weekly" {
+				t.Fatalf("expected frequency 'weekly', got %q", rule.Frequency)
+			}
+			return
+		}
+	}
+	t.Fatal("updated rule not found in list")
 }
 
 func TestRecurringUpdate_NotFound(t *testing.T) {
@@ -285,6 +331,23 @@ func TestRecurringUpdate_NotFound(t *testing.T) {
 
 func TestRecurringUpdate_Unauthorized(t *testing.T) {
 	// 其他用户的规则不可编辑 → 404
+	r := testEngine(t)
+
+	// Create user A with rule
+	tokenA := getToken(t, r, "rec_ua1_"+t.Name(), "testpass123")
+	ledgerID, catID := setupLedgerAndCategory(t, r, tokenA)
+	ruleID := createRecurring(t, r, tokenA, ledgerID, catID, "expense", 100, "monthly")
+
+	// Create user B
+	tokenB := getToken(t, r, "rec_ua2_"+t.Name(), "testpass123")
+
+	// User B PUT /api/v1/recurring/{userA_rule_id} → expect 404
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("PUT", "/api/v1/recurring/"+ruleID, tokenB,
+		map[string]interface{}{"amount": 200}))
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
 }
 
 // ---------- Recurring Delete ----------
@@ -321,6 +384,16 @@ func TestRecurringDelete_NotFound(t *testing.T) {
 
 func TestRecurringDelete_Unauthorized(t *testing.T) {
 	// 无 token → 401
+	r := testEngine(t)
+	token := getToken(t, r, "rec_del_ua_"+t.Name(), "testpass123")
+	ledgerID, catID := setupLedgerAndCategory(t, r, token)
+	ruleID := createRecurring(t, r, token, ledgerID, catID, "expense", 100, "monthly")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, jsonRequest("DELETE", "/api/v1/recurring/"+ruleID, nil))
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
 }
 
 // =============================================================================
@@ -404,14 +477,47 @@ func TestBudgetCreate_ZeroAmount(t *testing.T) {
 
 func TestBudgetCreate_NegativeAmount(t *testing.T) {
 	// 负值 → 400
+	r := testEngine(t)
+	token := getToken(t, r, "bgt_neg_"+t.Name(), "testpass123")
+	ledgerID, _ := setupLedgerAndCategory(t, r, token)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("POST", "/api/v1/budgets", token, map[string]interface{}{
+		"ledger_id": ledgerID, "month": "2026-06", "amount": -100,
+	}))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("negative amount: expected 400, got %d", w.Code)
+	}
 }
 
 func TestBudgetCreate_InvalidCategory(t *testing.T) {
 	// 不存在的分类 ID → 400 或 404
+	r := testEngine(t)
+	token := getToken(t, r, "bgt_invcat_"+t.Name(), "testpass123")
+	ledgerID, _ := setupLedgerAndCategory(t, r, token)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("POST", "/api/v1/budgets", token, map[string]interface{}{
+		"ledger_id": ledgerID, "category_id": uuid.New().String(), "month": "2026-06", "amount": 500,
+	}))
+	if w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound {
+		t.Fatalf("invalid category: expected 400 or 404, got %d", w.Code)
+	}
 }
 
 func TestBudgetCreate_InvalidMonth(t *testing.T) {
 	// 无效月份格式 → 400
+	r := testEngine(t)
+	token := getToken(t, r, "bgt_invmon_"+t.Name(), "testpass123")
+	ledgerID, _ := setupLedgerAndCategory(t, r, token)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("POST", "/api/v1/budgets", token, map[string]interface{}{
+		"ledger_id": ledgerID, "month": "abc", "amount": 500,
+	}))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("invalid month: expected 400, got %d", w.Code)
+	}
 }
 
 // ---------- Budget List ----------
@@ -453,6 +559,14 @@ func TestBudgetList_Empty(t *testing.T) {
 
 func TestBudgetList_MissingMonth(t *testing.T) {
 	// 缺少 month 参数 → 400
+	r := testEngine(t)
+	token := getToken(t, r, "bgt_nomon_"+t.Name(), "testpass123")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("GET", "/api/v1/budgets", token, nil))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("missing month: expected 400, got %d", w.Code)
+	}
 }
 
 // ---------- Budget Status ----------
@@ -465,22 +579,106 @@ func TestBudgetList_MissingMonth(t *testing.T) {
 func TestBudgetStatus_Normal(t *testing.T) {
 	r := testEngine(t)
 	token := getToken(t, r, "bgt_st1_"+t.Name(), "testpass123")
-	_, _ = setupLedgerAndCategory(t, r, token)
+	ledgerID, catID := setupLedgerAndCategory(t, r, token)
 
 	// Create budget: 2000 for category
-	// Create transactions: 850 spent in this category this month
+	createBudget(t, r, token, ledgerID, catID, time.Now().Format("2006-01"), 2000)
 
+	// Create transactions: 850 spent in this category this month
 	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("POST", "/api/v1/transactions", token, map[string]interface{}{
+		"ledger_id":        ledgerID,
+		"category_id":      catID,
+		"type":             "expense",
+		"amount":           850.00,
+		"currency":         "CNY",
+		"transaction_date": time.Now().Format("2006-01-02"),
+		"description":      "test",
+	}))
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create transaction: expected 201, got %d", w.Code)
+	}
+
+	w = httptest.NewRecorder()
 	r.ServeHTTP(w, authenticatedRequest("GET",
 		"/api/v1/budgets/status?month="+time.Now().Format("2006-01"), token, nil))
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 	// Verify: returned budget.amount == 2000, spent == 850, percentage ~42.5
+	var statusResp struct {
+		Data []struct {
+			Budget     float64 `json:"budget"`
+			Spent      float64 `json:"spent"`
+			Percentage float64 `json:"percentage"`
+		} `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &statusResp)
+	if len(statusResp.Data) < 1 {
+		t.Fatal("expected at least 1 budget status entry")
+	}
+	entry := statusResp.Data[0]
+	if entry.Budget != 2000 {
+		t.Errorf("expected budget 2000, got %f", entry.Budget)
+	}
+	if entry.Spent != 850 {
+		t.Errorf("expected spent 850, got %f", entry.Spent)
+	}
+	if entry.Percentage < 41.5 || entry.Percentage > 43.5 {
+		t.Errorf("expected percentage ~42.5, got %f", entry.Percentage)
+	}
 }
 
 func TestBudgetStatus_OverBudget(t *testing.T) {
 	// 超支场景: spent > budget → percentage > 100
+	r := testEngine(t)
+	token := getToken(t, r, "bgt_st2_"+t.Name(), "testpass123")
+	ledgerID, catID := setupLedgerAndCategory(t, r, token)
+
+	// Create budget: 1000 for category
+	createBudget(t, r, token, ledgerID, catID, time.Now().Format("2006-01"), 1000)
+
+	// Create transactions: 1500 spent in this category this month
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("POST", "/api/v1/transactions", token, map[string]interface{}{
+		"ledger_id":        ledgerID,
+		"category_id":      catID,
+		"type":             "expense",
+		"amount":           1500.00,
+		"currency":         "CNY",
+		"transaction_date": time.Now().Format("2006-01-02"),
+		"description":      "test over budget",
+	}))
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create transaction: expected 201, got %d", w.Code)
+	}
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authenticatedRequest("GET",
+		"/api/v1/budgets/status?month="+time.Now().Format("2006-01"), token, nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var statusResp struct {
+		Data []struct {
+			Budget     float64 `json:"budget"`
+			Spent      float64 `json:"spent"`
+			Percentage float64 `json:"percentage"`
+			OverBudget bool    `json:"over_budget"`
+		} `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &statusResp)
+	if len(statusResp.Data) < 1 {
+		t.Fatal("expected at least 1 budget status entry")
+	}
+	entry := statusResp.Data[0]
+	if entry.Percentage <= 100 {
+		t.Errorf("expected percentage > 100 (over budget), got %f", entry.Percentage)
+	}
+	if !entry.OverBudget {
+		t.Error("expected over_budget to be true")
+	}
 }
 
 func TestBudgetStatus_NoSpending(t *testing.T) {

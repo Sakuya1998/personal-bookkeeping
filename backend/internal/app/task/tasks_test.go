@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -551,16 +552,28 @@ func TestParseCSV_LargeAmount(t *testing.T) {
 type mockQueue struct {
 	submitted []queue.Task
 	started   bool
+	mu        sync.Mutex
 }
 
 func (q *mockQueue) Register(_ string, _ queue.HandlerFunc) {}
 func (q *mockQueue) Start(_ context.Context)                 { q.started = true }
 func (q *mockQueue) Submit(_ context.Context, task queue.Task) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	q.submitted = append(q.submitted, task)
 	return nil
 }
 func (q *mockQueue) Shutdown(_ context.Context) error { return nil }
 func (q *mockQueue) Stats() queue.Stats                { return queue.Stats{} }
+
+// submittedTasks returns a snapshot of submitted tasks under lock protection.
+func (q *mockQueue) submittedTasks() []queue.Task {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	out := make([]queue.Task, len(q.submitted))
+	copy(out, q.submitted)
+	return out
+}
 
 func TestStartRecurringScheduler_DispatchOnStart(t *testing.T) {
 	mq := &mockQueue{}
@@ -573,11 +586,12 @@ func TestStartRecurringScheduler_DispatchOnStart(t *testing.T) {
 	// Wait for a tick or two
 	time.Sleep(50 * time.Millisecond)
 
-	if len(mq.submitted) == 0 {
+	submitted := mq.submittedTasks()
+	if len(submitted) == 0 {
 		t.Fatal("expected at least 1 submitted task")
 	}
-	if mq.submitted[0].Type != TypeProcessRecurring {
-		t.Errorf("expected type %q, got %q", TypeProcessRecurring, mq.submitted[0].Type)
+	if submitted[0].Type != TypeProcessRecurring {
+		t.Errorf("expected type %q, got %q", TypeProcessRecurring, submitted[0].Type)
 	}
 }
 
@@ -590,14 +604,19 @@ func TestStartRecurringScheduler_NoDuplicateOnSameDay(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond) // several ticks
 
+	submitted := mq.submittedTasks()
 	// Should only have 1 submission because same-day dedup
-	if len(mq.submitted) != 1 {
-		t.Logf("submitted %d tasks (expected 1 due to same-day dedup)", len(mq.submitted))
-		// This is a timing-sensitive test; allow pass if >= 1
+	if len(submitted) != 1 {
+		t.Logf("submitted %d tasks (expected 1 due to same-day dedup)", len(submitted))
 	}
 }
 
 func TestStartRecurringScheduler_NilQueue(t *testing.T) {
 	// Should not panic
 	StartRecurringScheduler(context.Background(), nil, time.Hour)
+}
+
+func TestStartExchangeRateScheduler_NilQueue(t *testing.T) {
+	// Should log warning and return immediately, not panic
+	StartExchangeRateScheduler(context.Background(), nil)
 }
