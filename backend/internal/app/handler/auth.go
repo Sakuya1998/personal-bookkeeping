@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"personal-bookkeeping/internal/app/middleware"
 	"personal-bookkeeping/internal/app/model"
 	"personal-bookkeeping/internal/app/repository"
+	cch "personal-bookkeeping/internal/infra/cache"
 	"personal-bookkeeping/internal/infra/config"
 
 	"github.com/gin-gonic/gin"
@@ -142,11 +145,50 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	RespondJSON(c, http.StatusOK, toUserResponse(user))
 }
 
+// Logout  godoc
+// @Summary      登出（撤销当前 token）
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} Response
+// @Router       /auth/logout [post]
+func (h *AuthHandler) Logout(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	// Extract token jti from request
+	authHeader := c.GetHeader("Authorization")
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 {
+		RespondJSON(c, http.StatusOK, gin.H{"message": "logged out"})
+		return
+	}
+
+	claims := &middleware.Claims{}
+	if _, _, err := (&jwt.Parser{}).ParseUnverified(parts[1], claims); err != nil || claims.ID == "" {
+		// Can't extract jti — user still considered logged out
+		RespondJSON(c, http.StatusOK, gin.H{"message": "logged out"})
+		return
+	}
+
+	// Add token to blacklist (TTL = remaining token lifetime for safety)
+	remaining := time.Until(claims.ExpiresAt.Time)
+	if remaining <= 0 {
+		remaining = time.Hour
+	}
+	if cache := database.GetCache(); cache != nil {
+		_ = cache.Set(c.Request.Context(), cch.KeyTokenBlacklist(claims.ID), "1", remaining)
+	}
+
+	slog.Info("user logged out", "user_id", user.ID, "token_jti", claims.ID)
+	RespondJSON(c, http.StatusOK, gin.H{"message": "logged out"})
+}
+
 func (h *AuthHandler) generateToken(user models.User) (string, error) {
 	claims := middleware.Claims{
 		UserID:   user.ID.String(),
 		Username: user.Username,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.New().String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(h.cfg.JWT.ExpireMinute) * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},

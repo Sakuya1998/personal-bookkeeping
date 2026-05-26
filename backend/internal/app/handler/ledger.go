@@ -98,7 +98,7 @@ func (h *LedgerHandler) Create(c *gin.Context) {
 // @Router       /ledgers/{id} [get]
 func (h *LedgerHandler) Get(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("id")
+	id := c.Param("ledger_id")
 
 	var ledger models.Ledger
 	if err := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).First(&ledger).Error; err != nil {
@@ -125,7 +125,7 @@ func (h *LedgerHandler) Get(c *gin.Context) {
 // @Router       /ledgers/{id} [put]
 func (h *LedgerHandler) Update(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("id")
+	id := c.Param("ledger_id")
 
 	var ledger models.Ledger
 	if err := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).First(&ledger).Error; err != nil {
@@ -182,7 +182,7 @@ func (h *LedgerHandler) Update(c *gin.Context) {
 // @Router       /ledgers/{id} [delete]
 func (h *LedgerHandler) Delete(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("id")
+	id := c.Param("ledger_id")
 
 	result := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).Delete(&models.Ledger{})
 	if result.RowsAffected == 0 {
@@ -206,7 +206,7 @@ func (h *LedgerHandler) Delete(c *gin.Context) {
 // @Router       /ledgers/{id}/summary [get]
 func (h *LedgerHandler) Summary(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("id")
+	id := c.Param("ledger_id")
 
 	var ledger models.Ledger
 	if err := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).First(&ledger).Error; err != nil {

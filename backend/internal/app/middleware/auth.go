@@ -6,6 +6,7 @@ import (
 
 	"personal-bookkeeping/internal/app/repository"
 	models "personal-bookkeeping/internal/app/model"
+	cch "personal-bookkeeping/internal/infra/cache"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -38,6 +39,15 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 		if err != nil || !token.Valid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "invalid or expired token"})
 			return
+		}
+
+		// Check token blacklist (logout revocation)
+		if cache := database.GetCache(); cache != nil {
+			exists, _ := cache.Exists(c.Request.Context(), cch.KeyTokenBlacklist(claims.ID))
+			if exists {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "token revoked"})
+				return
+			}
 		}
 
 		var user models.User

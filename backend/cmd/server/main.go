@@ -11,6 +11,7 @@ import (
 
 	"personal-bookkeeping/internal/app/repository"
 	"personal-bookkeeping/internal/app/router"
+	"personal-bookkeeping/internal/app/task"
 	"personal-bookkeeping/internal/infra/cache"
 	"personal-bookkeeping/internal/infra/config"
 	"personal-bookkeeping/internal/infra/logger"
@@ -98,6 +99,7 @@ func main() {
 	}
 	database.InitQueue(q)
 	if q != nil {
+		task.RegisterAll(q)
 		q.Start(context.Background())
 		slog.Info("queue started", "type", cfg.Queue.Type, "workers", cfg.Queue.Workers)
 	}

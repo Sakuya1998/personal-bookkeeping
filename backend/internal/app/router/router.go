@@ -52,15 +52,16 @@ func Setup(r *gin.Engine, cfg *config.Config) {
 	{
 		// Auth
 		protected.GET("/auth/me", auth.Me)
+		protected.POST("/auth/logout", auth.Logout)
 
 		// Ledgers
 		ledger := handlers.NewLedgerHandler()
 		protected.GET("/ledgers", ledger.List)
 		protected.POST("/ledgers", ledger.Create)
-		protected.GET("/ledgers/:id", ledger.Get)
-		protected.PUT("/ledgers/:id", ledger.Update)
-		protected.DELETE("/ledgers/:id", ledger.Delete)
-		protected.GET("/ledgers/:id/summary", ledger.Summary)
+		protected.GET("/ledgers/:ledger_id", ledger.Get)
+		protected.PUT("/ledgers/:ledger_id", ledger.Update)
+		protected.DELETE("/ledgers/:ledger_id", ledger.Delete)
+		protected.GET("/ledgers/:ledger_id/summary", ledger.Summary)
 
 		// Categories
 		cat := handlers.NewCategoryHandler()
