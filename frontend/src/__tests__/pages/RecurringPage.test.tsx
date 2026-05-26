@@ -45,7 +45,7 @@ vi.mock('../../utils/currency', () => ({
     { code: 'CNY', symbol: '¥', name: '人民币' },
     { code: 'USD', symbol: '$', name: '美元' },
   ],
-  formatCurrency: vi.fn((amount: number, _currency: string) => `¥${amount.toFixed(2)}`),
+  formatCurrency: vi.fn((amount: number) => `¥${amount.toFixed(2)}`),
 }));
 
 // ---------------------------------------------------------------------------
