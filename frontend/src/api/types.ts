@@ -91,6 +91,31 @@ export interface LedgerSummary {
   }[];
 }
 
+/** 月度收支趋势单项 */
+export interface MonthlyTrendItem {
+  month: string;
+  income: number;
+  expense: number;
+}
+
+/** 分类收支分布单项 */
+export interface CategoryBreakdownItem {
+  category_id: string;
+  category_name: string;
+  category_icon: string;
+  type: 'income' | 'expense';
+  total: number;
+  percentage: number;
+}
+
+/** 日历视图每日汇总 */
+export interface DailyTransactionItem {
+  date: string;
+  income: number;
+  expense: number;
+  count: number;
+}
+
 export interface AuthResponse {
   token: string;
   user: User;

@@ -10,7 +10,7 @@ IMAGE    := personal-bookkeeping-backend
 COMPOSE  := docker compose
 COMPOSE_FILE := ../docker-compose.yml
 
-.PHONY: build run run/hot test vet tidy clean
+.PHONY: build run run/hot test test/short test/race test/cover test/db test/run vet tidy clean
 .PHONY: logs logs/tail logs/errors logs/truncate
 .PHONY: docker/build docker/run docker/up docker/down docker/logs docker/ps docker/rebuild
 .PHONY: migration/new migration/up migration/down migration/version
@@ -29,6 +29,13 @@ run/hot: build
 
 test:
 	GOCACHE=$(GOCACHE) GOPROXY=$(GOPROXY) $(GO) test ./... -v -count=1
+
+test/race:
+	GOCACHE=$(GOCACHE) GOPROXY=$(GOPROXY) $(GO) test -race -count=1 ./internal/app/task/ ./internal/app/middleware/ ./internal/infra/cache/ -v
+
+test/cover:
+	GOCACHE=$(GOCACHE) GOPROXY=$(GOPROXY) $(GO) test -coverprofile=coverage.out -covermode=atomic -count=1 ./internal/app/task/ ./internal/app/middleware/ ./internal/infra/cache/
+	$(GO) tool cover -func=coverage.out | tail -5
 
 test/short:
 	GOCACHE=$(GOCACHE) GOPROXY=$(GOPROXY) $(GO) test ./... -short -count=1

@@ -37,6 +37,15 @@ type LoginInput struct {
 	Password string `json:"password" binding:"required" example:"secret123"`
 }
 
+type ChangePasswordInput struct {
+	OldPassword string `json:"old_password" binding:"required,min=6,max=100"`
+	NewPassword string `json:"new_password" binding:"required,min=6,max=100"`
+}
+
+type ChangeEmailInput struct {
+	Email string `json:"email" binding:"required,email,max=100"`
+}
+
 // Register  godoc
 // @Summary      注册新用户
 // @Tags         auth
@@ -181,6 +190,80 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	slog.Info("user logged out", "user_id", user.ID, "token_jti", claims.ID)
 	RespondJSON(c, http.StatusOK, gin.H{"message": "logged out"})
+}
+
+// ChangePassword  godoc
+// @Summary      修改密码
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        input body ChangePasswordInput true "新旧密码"
+// @Success      200 {object} Response
+// @Failure      400 {object} Response
+// @Failure      401 {object} Response
+// @Router       /auth/password [put]
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	var input ChangePasswordInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		BadRequest(c, err.Error())
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.OldPassword)); err != nil {
+		Unauthorized(c, "invalid old password")
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		InternalError(c, "failed to hash password")
+		return
+	}
+
+	database.GetDB().Model(&models.User{}).Where("id = ?", user.ID).Update("password_hash", string(hash))
+
+	RespondJSON(c, http.StatusOK, gin.H{"message": "password updated"})
+}
+
+// ChangeEmail  godoc
+// @Summary      修改邮箱
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        input body ChangeEmailInput true "新邮箱"
+// @Success      200 {object} Response
+// @Failure      400 {object} Response
+// @Failure      409 {object} Response
+// @Router       /auth/email [put]
+func (h *AuthHandler) ChangeEmail(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	var input ChangeEmailInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		BadRequest(c, err.Error())
+		return
+	}
+
+	// check uniqueness
+	var existing models.User
+	if err := database.GetDB().Where("email = ? AND id <> ?", input.Email, user.ID).First(&existing).Error; err == nil {
+		Conflict(c, "email already in use by another user")
+		return
+	}
+
+	database.GetDB().Model(&models.User{}).Where("id = ?", user.ID).Update("email", input.Email)
+
+	RespondJSON(c, http.StatusOK, toUserResponse(&models.User{
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     input.Email,
+		IsActive:  user.IsActive,
+		CreatedAt: user.CreatedAt,
+	}))
 }
 
 func (h *AuthHandler) generateToken(user models.User) (string, error) {

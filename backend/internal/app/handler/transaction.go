@@ -321,3 +321,106 @@ type transactionList struct {
 	PageSize   int                 `json:"page_size"`
 	TotalPages int                 `json:"total_pages"`
 }
+
+// ---------- batch operations ----------
+
+// BatchDelete  godoc
+// @Summary      批量删除交易
+// @Tags         transactions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        input body object{ids=[]string} true "交易 ID 列表"
+// @Success      200 {object} Response{data=map[string]int}
+// @Router       /transactions/batch-delete [post]
+func (h *TransactionHandler) BatchDelete(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	var input struct {
+		IDs []string `json:"ids" binding:"required,min=1,max=500"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		BadRequest(c, err.Error())
+		return
+	}
+
+	// verify ownership and collect valid UUIDs
+	uuids := make([]uuid.UUID, 0, len(input.IDs))
+	for _, id := range input.IDs {
+		parsed, err := uuid.Parse(id)
+		if err != nil {
+			BadRequest(c, "invalid id: "+id)
+			return
+		}
+		uuids = append(uuids, parsed)
+	}
+
+	var count int64
+	database.GetDB().Model(&models.Transaction{}).Where("id IN ? AND user_id = ?", uuids, user.ID).Count(&count)
+	if count != int64(len(uuids)) {
+		BadRequest(c, "some transactions not found or not owned by current user")
+		return
+	}
+
+	result := database.GetDB().Where("id IN ?", uuids).Delete(&models.Transaction{})
+	RespondJSON(c, http.StatusOK, map[string]interface{}{
+		"deleted": result.RowsAffected,
+	})
+}
+
+// BatchUpdate  godoc
+// @Summary      批量修改交易分类
+// @Tags         transactions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        input body object{ids=[]string,category_id=string} true "交易 ID 列表 + 目标分类 ID"
+// @Success      200 {object} Response{data=map[string]int}
+// @Router       /transactions/batch-update [put]
+func (h *TransactionHandler) BatchUpdate(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	var input struct {
+		IDs        []string `json:"ids" binding:"required,min=1,max=500"`
+		CategoryID string   `json:"category_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		BadRequest(c, err.Error())
+		return
+	}
+
+	// verify category exists and belongs to user
+	catUUID, err := uuid.Parse(input.CategoryID)
+	if err != nil {
+		BadRequest(c, "invalid category_id")
+		return
+	}
+	var cat models.Category
+	if err := database.GetDB().Where("id = ? AND user_id = ?", catUUID, user.ID).First(&cat).Error; err != nil {
+		NotFound(c, "category not found")
+		return
+	}
+
+	// verify all transaction IDs
+	uuids := make([]uuid.UUID, 0, len(input.IDs))
+	for _, id := range input.IDs {
+		parsed, err := uuid.Parse(id)
+		if err != nil {
+			BadRequest(c, "invalid id: "+id)
+			return
+		}
+		uuids = append(uuids, parsed)
+	}
+
+	var count int64
+	database.GetDB().Model(&models.Transaction{}).Where("id IN ? AND user_id = ?", uuids, user.ID).Count(&count)
+	if count != int64(len(uuids)) {
+		BadRequest(c, "some transactions not found or not owned by current user")
+		return
+	}
+
+	result := database.GetDB().Model(&models.Transaction{}).Where("id IN ?", uuids).Update("category_id", catUUID)
+	RespondJSON(c, http.StatusOK, map[string]interface{}{
+		"updated": result.RowsAffected,
+	})
+}

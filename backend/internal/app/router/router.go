@@ -53,6 +53,8 @@ func Setup(r *gin.Engine, cfg *config.Config) {
 		// Auth
 		protected.GET("/auth/me", auth.Me)
 		protected.POST("/auth/logout", auth.Logout)
+		protected.PUT("/auth/password", auth.ChangePassword)
+		protected.PUT("/auth/email", auth.ChangeEmail)
 
 		// Ledgers
 		ledger := handlers.NewLedgerHandler()
@@ -62,6 +64,11 @@ func Setup(r *gin.Engine, cfg *config.Config) {
 		protected.PUT("/ledgers/:ledger_id", ledger.Update)
 		protected.DELETE("/ledgers/:ledger_id", ledger.Delete)
 		protected.GET("/ledgers/:ledger_id/summary", ledger.Summary)
+		protected.GET("/ledgers/:ledger_id/monthly-trend", ledger.MonthlyTrend)
+		protected.GET("/ledgers/:ledger_id/category-breakdown", ledger.CategoryBreakdown)
+		protected.GET("/ledgers/:ledger_id/daily-transactions", ledger.DailyTransactions)
+		protected.GET("/ledgers/:ledger_id/export", ledger.Export)
+		protected.GET("/ledgers/:ledger_id/tags", ledger.Tags)
 
 		// Categories
 		cat := handlers.NewCategoryHandler()
@@ -76,6 +83,8 @@ func Setup(r *gin.Engine, cfg *config.Config) {
 		protected.POST("/transactions", txn.Create)
 		protected.PUT("/transactions/:id", txn.Update)
 		protected.DELETE("/transactions/:id", txn.Delete)
+		protected.POST("/transactions/batch-delete", txn.BatchDelete)
+		protected.PUT("/transactions/batch-update", txn.BatchUpdate)
 
 		// Exchange rates
 		rate := handlers.NewExchangeRateHandler()

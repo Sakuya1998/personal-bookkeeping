@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"personal-bookkeeping/internal/app/model"
 	"personal-bookkeeping/internal/app/repository"
+	"personal-bookkeeping/internal/infra/queue"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -257,4 +259,213 @@ type CategorySummary struct {
 	CategoryIcon string    `json:"category_icon"`
 	Total        float64   `json:"total"`
 	Count        int64     `json:"count"`
+}
+
+// Export  godoc
+// @Summary      导出交易数据（同步 CSV/JSON，超 5000 条转异步）
+// @Tags         ledgers
+// @Produce      json
+// @Security     BearerAuth
+// @Param        ledger_id  path  string true "账本 ID"
+// @Param        format     query string false "导出格式: csv|json" default(csv)
+// @Param        start_date query string false "开始日期 2006-01-02"
+// @Param        end_date   query string false "结束日期 2006-01-02"
+// @Success      200 {file} file
+// @Router       /ledgers/{ledger_id}/export [get]
+func (h *LedgerHandler) Export(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+	ledgerID := c.Param("ledger_id")
+
+	var ledger models.Ledger
+	if err := database.GetDB().Where("id = ? AND user_id = ?", ledgerID, user.ID).First(&ledger).Error; err != nil {
+		NotFound(c, "ledger not found")
+		return
+	}
+
+	format := c.DefaultQuery("format", "csv")
+	if format != "csv" && format != "json" {
+		BadRequest(c, "format must be csv or json")
+		return
+	}
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	// count first
+	var total int64
+	countQuery := database.GetDB().Model(&models.Transaction{}).
+		Where("ledger_id = ? AND user_id = ?", ledgerID, user.ID)
+	if startDate != "" {
+		countQuery = countQuery.Where("transaction_date >= ?", startDate)
+	}
+	if endDate != "" {
+		countQuery = countQuery.Where("transaction_date <= ?", endDate)
+	}
+	countQuery.Count(&total)
+
+	const syncLimit = 5000
+	if total >= syncLimit {
+		// redirect to async task
+		q := database.GetQueue()
+		if q == nil {
+			InternalError(c, "task queue not available")
+			return
+		}
+		taskID := uuid.New().String()
+		if err := q.Submit(c.Request.Context(), queue.Task{
+			ID:   taskID,
+			Type: "export_report",
+			Payload: map[string]interface{}{
+				"user_id":    user.ID.String(),
+				"ledger_id":  ledgerID,
+				"start_date": startDate,
+				"end_date":   endDate,
+				"format":     format,
+			},
+		}); err != nil {
+			InternalError(c, "failed to submit export task")
+			return
+		}
+		RespondJSON(c, http.StatusOK, map[string]interface{}{
+			"message": "export submitted as async task",
+			"task_id": taskID,
+			"total":   total,
+		})
+		return
+	}
+
+	// synchronous export (< 5000 records)
+	query := database.GetDB().Where("ledger_id = ? AND user_id = ?", ledgerID, user.ID)
+	if startDate != "" {
+		query = query.Where("transaction_date >= ?", startDate)
+	}
+	if endDate != "" {
+		query = query.Where("transaction_date <= ?", endDate)
+	}
+	var transactions []models.Transaction
+	query.Order("transaction_date desc").Find(&transactions)
+
+	switch format {
+	case "csv":
+		c.Header("Content-Type", "text/csv; charset=utf-8")
+		c.Header("Content-Disposition", "attachment; filename=export.csv")
+		writeCSVStream(c, transactions)
+	case "json":
+		RespondJSON(c, http.StatusOK, transactions)
+	}
+}
+
+// Tags  godoc
+// @Summary      获取账本所有标签
+// @Tags         ledgers
+// @Produce      json
+// @Security     BearerAuth
+// @Param        ledger_id path string true "账本 ID"
+// @Success      200 {object} Response{data=[]string}
+// @Router       /ledgers/{ledger_id}/tags [get]
+func (h *LedgerHandler) Tags(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+	ledgerID := c.Param("ledger_id")
+
+	var ledger models.Ledger
+	if err := database.GetDB().Where("id = ? AND user_id = ?", ledgerID, user.ID).First(&ledger).Error; err != nil {
+		NotFound(c, "ledger not found")
+		return
+	}
+
+	var rawTags []string
+	database.GetDB().Model(&models.Transaction{}).
+		Where("ledger_id = ? AND user_id = ? AND tags IS NOT NULL AND tags <> ''", ledgerID, user.ID).
+		Distinct("tags").
+		Pluck("tags", &rawTags)
+
+	// split and deduplicate
+	seen := make(map[string]struct{})
+	var tags []string
+	for _, raw := range rawTags {
+		for _, t := range splitTags(raw) {
+			t = trim(t)
+			if t == "" {
+				continue
+			}
+			if _, ok := seen[t]; !ok {
+				seen[t] = struct{}{}
+				tags = append(tags, t)
+			}
+		}
+	}
+
+	if tags == nil {
+		tags = []string{}
+	}
+
+	RespondJSON(c, http.StatusOK, tags)
+}
+
+// ---------- helpers ----------
+
+var csvHeader = []string{"id", "date", "type", "amount", "currency", "base_amount", "description", "category_id"}
+
+func writeCSVStream(c *gin.Context, transactions []models.Transaction) {
+	c.Writer.WriteString(stringsJoin(csvHeader, ",") + "\n")
+	for _, t := range transactions {
+		c.Writer.WriteString(csvRow(t))
+	}
+}
+
+func csvRow(t models.Transaction) string {
+	desc := ""
+	if t.Description != nil {
+		desc = *t.Description
+	}
+	return stringsJoin([]string{
+		t.ID.String(),
+		t.TransactionDate,
+		t.Type,
+		fmt.Sprintf("%.2f", t.Amount),
+		t.Currency,
+		fmt.Sprintf("%.2f", t.BaseAmount),
+		desc,
+		t.CategoryID.String(),
+	}, ",") + "\n"
+}
+
+func stringsJoin(parts []string, sep string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	out := parts[0]
+	for i := 1; i < len(parts); i++ {
+		out += sep + parts[i]
+	}
+	return out
+}
+
+func splitTags(raw string) []string {
+	// tags are stored comma-separated
+	var parts []string
+	current := ""
+	for _, ch := range raw {
+		if ch == ',' {
+			parts = append(parts, current)
+			current = ""
+		} else {
+			current += string(ch)
+		}
+	}
+	if current != "" {
+		parts = append(parts, current)
+	}
+	return parts
+}
+
+func trim(s string) string {
+	start := 0
+	end := len(s)
+	for start < end && (s[start] == ' ' || s[start] == '\t') {
+		start++
+	}
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
+		end--
+	}
+	return s[start:end]
 }

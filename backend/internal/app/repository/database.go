@@ -42,7 +42,22 @@ func Init(cfg *config.Config) {
 		return
 	}
 
+	// Ensure performance indexes
+	createIndexes(DB)
+
 	slog.Info("database connected and migrated successfully")
+}
+
+func createIndexes(db *gorm.DB) {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_transactions_ledger_user_date ON transactions (ledger_id, user_id, transaction_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_transactions_user_type ON transactions (user_id, type)`,
+	}
+	for _, idx := range indexes {
+		if err := db.Exec(idx).Error; err != nil {
+			slog.Warn("failed to create index", "error", err)
+		}
+	}
 }
 
 func InitCache(cfg cache.Cache) {

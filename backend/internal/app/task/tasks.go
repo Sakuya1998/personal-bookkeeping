@@ -195,8 +195,8 @@ func parseCSV(content, userID, ledgerID string) ([]models.Transaction, error) {
 		if len(row) < 5 {
 			continue
 		}
-		amount, _ := strconv.ParseFloat(row[3], 64)
-		desc := row[4]
+		amount, _ := strconv.ParseFloat(row[2], 64)
+		desc := row[3]
 		txn := models.Transaction{
 			LedgerID:        lid,
 			UserID:          uid,
@@ -210,8 +210,8 @@ func parseCSV(content, userID, ledgerID string) ([]models.Transaction, error) {
 			CreatedAt:       now,
 			UpdatedAt:       now,
 		}
-		if len(row) > 5 && row[5] != "" {
-			cid := uuid.MustParse(row[5])
+		if len(row) > 4 && row[4] != "" {
+			cid := uuid.MustParse(row[4])
 			txn.CategoryID = cid
 		}
 		txns = append(txns, txn)

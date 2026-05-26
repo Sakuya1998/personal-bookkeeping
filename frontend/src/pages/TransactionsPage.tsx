@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Table, Button, Modal, Form, Input, Select, DatePicker, Tag, Space, message, Popconfirm, Row, Col } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { Card, Table, Button, Modal, Form, Input, Select, DatePicker, Tag, Space, message, Popconfirm, Row, Col, Skeleton } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TagsOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse, PaginatedData, Transaction, Category } from '../api/types';
@@ -19,10 +19,13 @@ const TransactionsPage: React.FC = () => {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [form] = Form.useForm();
   const [filters, setFilters] = useState({ type: '', category_id: '', keyword: '', start_date: '', end_date: '' });
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [batchCategoryModalOpen, setBatchCategoryModalOpen] = useState(false);
+  const [batchCategoryId, setBatchCategoryId] = useState<string | undefined>(undefined);
 
   const loadTxns = useCallback(async () => {
     if (!currentLedger) return;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     try {
       const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
       Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
@@ -36,23 +39,11 @@ const TransactionsPage: React.FC = () => {
 
   useEffect(() => {
     if (!currentLedger) return;
-    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
-    Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-    const loadId = setTimeout(() => setLoading(true), 0);
-    client.get<ApiResponse<PaginatedData<Transaction>>>(`/ledgers/${currentLedger.id}/transactions?${params}`)
-      .then((res) => {
-        clearTimeout(loadId);
-        setTxns(res.data.data.items);
-        setTotal(res.data.data.total);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    queueMicrotask(() => setSelectedRowKeys([]));
+    loadTxns();
     client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`)
-      .then((res) => {
-        setCategories(res.data.data);
-      });
-  }, [currentLedger, page, pageSize, filters]);
+      .then((res) => setCategories(res.data.data));
+  }, [currentLedger, page, pageSize, filters, loadTxns]);
 
   const handleSubmit = async (values: Record<string, unknown>) => {
     const data = {
@@ -83,6 +74,47 @@ const TransactionsPage: React.FC = () => {
     await client.delete(`/transactions/${id}`);
     message.success('删除成功');
     loadTxns();
+  };
+
+  const handleBatchDelete = () => {
+    Modal.confirm({
+      title: '批量删除',
+      content: `确定要删除选中的 ${selectedRowKeys.length} 条记录吗？此操作不可恢复。`,
+      okText: '确认删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const res = await client.post<ApiResponse<{ deleted: number }>>('/transactions/batch-delete', {
+            ids: selectedRowKeys,
+          });
+          message.success(`已删除 ${res.data.data.deleted} 条记录`);
+          setSelectedRowKeys([]);
+          loadTxns();
+        } catch (err: unknown) {
+          const apiErr = err as { response?: { data?: { message?: string } } };
+          message.error(apiErr.response?.data?.message || '批量删除失败');
+        }
+      },
+    });
+  };
+
+  const handleBatchCategorySubmit = async () => {
+    if (!batchCategoryId || selectedRowKeys.length === 0) return;
+    try {
+      const res = await client.put<ApiResponse<{ updated: number }>>('/transactions/batch-update', {
+        ids: selectedRowKeys,
+        category_id: batchCategoryId,
+      });
+      message.success(`已更新 ${res.data.data.updated} 条记录的分类`);
+      setBatchCategoryModalOpen(false);
+      setBatchCategoryId(undefined);
+      setSelectedRowKeys([]);
+      loadTxns();
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '批量修改分类失败');
+    }
   };
 
   const openCreate = () => {
@@ -122,7 +154,23 @@ const TransactionsPage: React.FC = () => {
         );
       },
     },
-    { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true },
+    { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true,
+      render: (_: unknown, r: Transaction) => {
+        const text = r.description || '';
+        if (!filters.keyword || !text) return text || '-';
+        const lower = text.toLowerCase();
+        const kw = filters.keyword.toLowerCase();
+        const idx = lower.indexOf(kw);
+        if (idx === -1) return text;
+        return (
+          <span>
+            {text.slice(0, idx)}
+            <mark>{text.slice(idx, idx + kw.length)}</mark>
+            {text.slice(idx + kw.length)}
+          </span>
+        );
+      },
+    },
     {
       title: '操作', key: 'action', width: 100,
       render: (_: unknown, r: Transaction) => (
@@ -136,29 +184,56 @@ const TransactionsPage: React.FC = () => {
     },
   ];
 
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (keys: React.Key[]) => setSelectedRowKeys(keys),
+  };
+
   return (
     <div>
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Row gutter={[8, 8]} align="middle">
-          <Col><Select allowClear placeholder="类型" style={{ width: 100 }} options={[{ label: '收入', value: 'income' }, { label: '支出', value: 'expense' }]} onChange={(v) => setFilters(p => ({ ...p, type: v || '', category_id: '' }))} /></Col>
-          <Col><Select allowClear placeholder="分类" style={{ width: 140 }} options={catOptions} onChange={(v) => setFilters(p => ({ ...p, category_id: v || '' }))} /></Col>
-          <Col><DatePicker.RangePicker onChange={(dates) => setFilters(p => ({ ...p, start_date: dates?.[0]?.format('YYYY-MM-DD') || '', end_date: dates?.[1]?.format('YYYY-MM-DD') || '' }))} /></Col>
-          <Col><Input prefix={<SearchOutlined />} placeholder="搜索描述" style={{ width: 160 }} onChange={(e) => setFilters(p => ({ ...p, keyword: e.target.value }))} /></Col>
+        <Row gutter={[8, 8]} align="middle" justify="space-between">
           <Col>
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增</Button>
+            <Row gutter={[8, 8]} align="middle">
+              <Col><Select allowClear placeholder="类型" style={{ width: 100 }} options={[{ label: '收入', value: 'income' }, { label: '支出', value: 'expense' }]} onChange={(v) => setFilters(p => ({ ...p, type: v || '', category_id: '' }))} /></Col>
+              <Col><Select allowClear placeholder="分类" style={{ width: 140 }} options={catOptions} onChange={(v) => setFilters(p => ({ ...p, category_id: v || '' }))} /></Col>
+              <Col><DatePicker.RangePicker onChange={(dates) => setFilters(p => ({ ...p, start_date: dates?.[0]?.format('YYYY-MM-DD') || '', end_date: dates?.[1]?.format('YYYY-MM-DD') || '' }))} /></Col>
+              <Col><Input prefix={<SearchOutlined />} placeholder="搜索描述" style={{ width: 160 }} onChange={(e) => setFilters(p => ({ ...p, keyword: e.target.value }))} /></Col>
+            </Row>
+          </Col>
+          <Col>
+            <Space>
+              {selectedRowKeys.length > 0 && (
+                <>
+                  <span style={{ color: '#999' }}>已选 {selectedRowKeys.length} 项</span>
+                  <Button icon={<TagsOutlined />} onClick={() => {
+                    setBatchCategoryId(undefined);
+                    setBatchCategoryModalOpen(true);
+                  }}>修改分类</Button>
+                  <Button danger onClick={handleBatchDelete}>批量删除</Button>
+                </>
+              )}
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增</Button>
+            </Space>
           </Col>
         </Row>
       </Card>
 
-      <Table
-        dataSource={txns}
-        columns={columns}
-        rowKey="id"
-        loading={loading}
-        pagination={{ current: page, total, pageSize, onChange: (p) => setPage(p) }}
-        size="small"
-      />
+      {loading && txns.length === 0 ? (
+        <Skeleton active paragraph={{ rows: 8 }} />
+      ) : (
+        <Table
+          dataSource={txns}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          rowSelection={rowSelection}
+          pagination={{ current: page, total, pageSize, onChange: (p) => setPage(p) }}
+          size="small"
+        />
+      )}
 
+      {/* Single transaction create/edit modal */}
       <Modal
         title={editing ? '编辑记录' : '新增记录'}
         open={modalOpen}
@@ -197,6 +272,26 @@ const TransactionsPage: React.FC = () => {
             <Select mode="tags" placeholder="输入标签后回车" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Batch category update modal */}
+      <Modal
+        title="批量修改分类"
+        open={batchCategoryModalOpen}
+        onOk={handleBatchCategorySubmit}
+        onCancel={() => { setBatchCategoryModalOpen(false); setBatchCategoryId(undefined); }}
+        okText="确认修改"
+        cancelText="取消"
+        okButtonProps={{ disabled: !batchCategoryId }}
+      >
+        <p style={{ marginBottom: 16 }}>将为选中的 {selectedRowKeys.length} 条记录统一修改分类：</p>
+        <Select
+          placeholder="选择目标分类"
+          style={{ width: '100%' }}
+          value={batchCategoryId}
+          onChange={(v) => setBatchCategoryId(v)}
+          options={categories.map(c => ({ label: `${c.icon || ''} ${c.name} (${c.type === 'income' ? '收入' : '支出'})`, value: c.id }))}
+        />
       </Modal>
     </div>
   );

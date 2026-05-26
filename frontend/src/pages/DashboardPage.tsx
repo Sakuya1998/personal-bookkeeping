@@ -1,27 +1,106 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Empty, Button } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined, WalletOutlined } from '@ant-design/icons';
+import {
+  Row, Col, Card, Statistic, Empty, Button, Spin, Modal, Select,
+  DatePicker, message, Space, Skeleton,
+} from 'antd';
+import {
+  ArrowUpOutlined, ArrowDownOutlined, WalletOutlined, DownloadOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import ReactECharts from 'echarts-for-react';
+import type { EChartsOption } from 'echarts';
+import dayjs from 'dayjs';
 import client from '../api/client';
-import { ApiResponse, LedgerSummary, PaginatedData, Transaction } from '../api/types';
+import { ApiResponse, LedgerSummary, MonthlyTrendItem, CategoryBreakdownItem } from '../api/types';
 import { useAppStore } from '../store/appStore';
-import { formatCurrency } from '../utils/currency';
 
 const DashboardPage: React.FC = () => {
   const { currentLedger } = useAppStore();
   const [summary, setSummary] = useState<LedgerSummary | null>(null);
-  const [recentTxns, setRecentTxns] = useState<Transaction[]>([]);
+  const [monthlyTrend, setMonthlyTrend] = useState<MonthlyTrendItem[]>([]);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdownItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Export modal state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv');
+  const [exportDateRange, setExportDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
 
   useEffect(() => {
     if (!currentLedger) return;
-    client.get<ApiResponse<LedgerSummary>>(`/ledgers/${currentLedger.id}/summary`).then((res) => {
-      setSummary(res.data.data);
-    });
-    client.get<ApiResponse<PaginatedData<Transaction>>>(`/ledgers/${currentLedger.id}/transactions?page=1&page_size=5`).then((res) => {
-      setRecentTxns(res.data.data.items);
-    });
+    queueMicrotask(() => setLoading(true));
+    Promise.all([
+      client.get<ApiResponse<LedgerSummary>>(`/ledgers/${currentLedger.id}/summary`),
+      client.get<ApiResponse<MonthlyTrendItem[]>>(`/ledgers/${currentLedger.id}/monthly-trend?months=6`),
+      client.get<ApiResponse<CategoryBreakdownItem[]>>(`/ledgers/${currentLedger.id}/category-breakdown`),
+    ])
+      .then(([sumRes, trendRes, catRes]) => {
+        setSummary(sumRes.data.data);
+        setMonthlyTrend(trendRes.data.data || []);
+        setCategoryBreakdown(catRes.data.data || []);
+      })
+      .finally(() => setLoading(false));
   }, [currentLedger]);
+
+  const handleExport = async () => {
+    if (!currentLedger) return;
+    const params = new URLSearchParams({ format: exportFormat });
+    if (exportDateRange) {
+      params.set('start_date', exportDateRange[0].format('YYYY-MM-DD'));
+      params.set('end_date', exportDateRange[1].format('YYYY-MM-DD'));
+    }
+    try {
+      const url = `/ledgers/${currentLedger.id}/export?${params}`;
+      const res = await client.get(url, { responseType: 'text' });
+      const contentType = res.headers['content-type'] as string || '';
+
+      if (contentType.includes('text/csv')) {
+        // File download — create blob and trigger download
+        const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `export.${exportFormat}`;
+        a.click();
+        URL.revokeObjectURL(downloadUrl);
+        message.success('导出完成');
+      } else if (contentType.includes('application/json')) {
+        // Async task response or JSON data
+        try {
+          const parsed = JSON.parse(res.data);
+          if (parsed.data?.task_id) {
+            message.info(`导出任务已提交，任务 ID: ${parsed.data.task_id}（共 ${parsed.data.total} 条记录）`);
+          } else if (Array.isArray(parsed.data)) {
+            // Direct JSON export — download
+            const blob = new Blob([JSON.stringify(parsed.data, null, 2)], { type: 'application/json' });
+            const downloadUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `export.json`;
+            a.click();
+            URL.revokeObjectURL(downloadUrl);
+            message.success('导出完成');
+          } else {
+            message.info(JSON.stringify(parsed));
+          }
+        } catch {
+          // plain text response, just download
+          const blob = new Blob([res.data], { type: 'text/plain' });
+          const downloadUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `export.txt`;
+          a.click();
+          URL.revokeObjectURL(downloadUrl);
+        }
+      }
+      setExportOpen(false);
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '导出失败');
+    }
+  };
 
   if (!currentLedger) {
     return (
@@ -31,89 +110,158 @@ const DashboardPage: React.FC = () => {
     );
   }
 
-  const columns = [
-    { title: '日期', dataIndex: 'transaction_date', key: 'date', width: 110 },
-    {
-      title: '分类', key: 'category', width: 120,
-      render: (_: unknown, r: Transaction) => r.category?.name || '-',
-    },
-    {
-      title: '类型', dataIndex: 'type', key: 'type', width: 80,
-      render: (t: string) => <Tag color={t === 'income' ? 'green' : 'red'}>{t === 'income' ? '收入' : '支出'}</Tag>,
-    },
-    {
-      title: '金额', key: 'amount', width: 120,
-      render: (_: unknown, r: Transaction) => (
-        <span style={{ color: r.type === 'income' ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}>
-          {r.type === 'income' ? '+' : '-'}{formatCurrency(r.base_amount, currentLedger.base_currency)}
-        </span>
-      ),
-    },
-    { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true },
-  ];
+  const trendOption: EChartsOption = {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['收入', '支出'], top: 0 },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'category', boundaryGap: false, data: monthlyTrend.map((m) => m.month) },
+    yAxis: { type: 'value' },
+    series: [
+      {
+        name: '收入', type: 'line', smooth: true,
+        data: monthlyTrend.map((m) => m.income),
+        itemStyle: { color: '#52c41a' },
+        areaStyle: { color: 'rgba(82,196,26,0.1)' },
+      },
+      {
+        name: '支出', type: 'line', smooth: true,
+        data: monthlyTrend.map((m) => m.expense),
+        itemStyle: { color: '#ff4d4f' },
+        areaStyle: { color: 'rgba(255,77,79,0.08)' },
+      },
+    ],
+  };
+
+  const expenseItems = categoryBreakdown.filter((c) => c.type === 'expense');
+
+  const ringOption: EChartsOption = {
+    tooltip: { trigger: 'item' },
+    legend: { orient: 'vertical', right: 0, top: 'middle', data: expenseItems.map((c) => c.category_name) },
+    series: [{
+      name: '分类支出', type: 'pie', radius: ['45%', '72%'], center: ['40%', '50%'],
+      avoidLabelOverlap: false, padAngle: 2,
+      itemStyle: { borderRadius: 6 },
+      label: { show: false },
+      emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
+      data: expenseItems.map((c) => ({ value: c.total, name: c.category_name })),
+    }],
+  };
 
   return (
-    <div>
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={8}>
-          <Card hoverable onClick={() => navigate('/transactions?type=income')}>
-            <Statistic
-              title="总收入"
-              value={summary?.total_income || 0}
-              precision={2}
-              prefix={<ArrowUpOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-              suffix={currentLedger.base_currency}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card hoverable onClick={() => navigate('/transactions?type=expense')}>
-            <Statistic
-              title="总支出"
-              value={summary?.total_expense || 0}
-              precision={2}
-              prefix={<ArrowDownOutlined />}
-              valueStyle={{ color: '#ff4d4f' }}
-              suffix={currentLedger.base_currency}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="结余"
-              value={summary?.balance || 0}
-              precision={2}
-              prefix={<WalletOutlined />}
-              valueStyle={{ color: (summary?.balance || 0) >= 0 ? '#1890ff' : '#ff4d4f' }}
-              suffix={currentLedger.base_currency}
-            />
-          </Card>
-        </Col>
-      </Row>
+    <Spin spinning={loading}>
+      {loading && !summary ? (
+        <>
+          <Row gutter={16} style={{ marginBottom: 24 }}>
+            {[1, 2, 3].map((i) => (
+              <Col span={8} key={i}>
+                <Card><Skeleton active paragraph={{ rows: 1 }} title={{ width: '60%' }} /></Card>
+              </Col>
+            ))}
+          </Row>
+          <Row gutter={16}>
+            <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
+              <Card title="月度收支趋势"><Skeleton active paragraph={{ rows: 6 }} /></Card>
+            </Col>
+            <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
+              <Card title="分类支出分布"><Skeleton active paragraph={{ rows: 6 }} /></Card>
+            </Col>
+          </Row>
+        </>
+      ) : (
+        <>
+          <Row gutter={16} style={{ marginBottom: 24 }}>
+            <Col span={8}>
+              <Card hoverable onClick={() => navigate('/transactions?type=income')}>
+                <Statistic
+                  title="总收入" value={summary?.total_income || 0} precision={2}
+                  prefix={<ArrowUpOutlined />} valueStyle={{ color: '#52c41a' }}
+                  suffix={currentLedger.base_currency}
+                />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card hoverable onClick={() => navigate('/transactions?type=expense')}>
+                <Statistic
+                  title="总支出" value={summary?.total_expense || 0} precision={2}
+                  prefix={<ArrowDownOutlined />} valueStyle={{ color: '#ff4d4f' }}
+                  suffix={currentLedger.base_currency}
+                />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card
+                extra={
+                  <Button size="small" icon={<DownloadOutlined />} onClick={() => setExportOpen(true)}>
+                    导出
+                  </Button>
+                }
+              >
+                <Statistic
+                  title="结余" value={summary?.balance || 0} precision={2}
+                  prefix={<WalletOutlined />}
+                  valueStyle={{ color: (summary?.balance || 0) >= 0 ? '#1890ff' : '#ff4d4f' }}
+                  suffix={currentLedger.base_currency}
+                />
+              </Card>
+            </Col>
+          </Row>
 
-      <Card title="最近记录" extra={<a onClick={() => navigate('/transactions')}>查看全部</a>}>
-        <Table
-          dataSource={recentTxns}
-          columns={columns}
-          rowKey="id"
-          pagination={false}
-          size="small"
-        />
-      </Card>
-
-      {summary && summary.expense_by_category && summary.expense_by_category.length > 0 && (
-        <Card title="支出分类排行" style={{ marginTop: 16 }}>
-          {summary.expense_by_category.map((cat) => (
-            <div key={cat.category_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
-              <span>{cat.category_icon} {cat.category_name} ({cat.count}笔)</span>
-              <span style={{ fontWeight: 600, color: '#ff4d4f' }}>{formatCurrency(cat.total, currentLedger.base_currency)}</span>
-            </div>
-          ))}
-        </Card>
+          <Row gutter={16}>
+            <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
+              <Card title="月度收支趋势">
+                {monthlyTrend.length > 0 ? (
+                  <ReactECharts option={trendOption} style={{ height: 320 }} />
+                ) : (
+                  <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                )}
+              </Card>
+            </Col>
+            <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
+              <Card title="分类支出分布">
+                {expenseItems.length > 0 ? (
+                  <ReactECharts option={ringOption} style={{ height: 320 }} />
+                ) : (
+                  <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                )}
+              </Card>
+            </Col>
+          </Row>
+        </>
       )}
-    </div>
+
+      {/* Export modal */}
+      <Modal
+        title="导出数据"
+        open={exportOpen}
+        onOk={handleExport}
+        onCancel={() => setExportOpen(false)}
+        okText="开始导出"
+        cancelText="取消"
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <div>
+            <div style={{ marginBottom: 8 }}>导出格式</div>
+            <Select
+              value={exportFormat}
+              onChange={(v) => setExportFormat(v)}
+              style={{ width: '100%' }}
+              options={[
+                { label: 'CSV（Excel 兼容）', value: 'csv' },
+                { label: 'JSON', value: 'json' },
+              ]}
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 8 }}>日期范围（可选，不选则导出全部）</div>
+            <DatePicker.RangePicker
+              style={{ width: '100%' }}
+              value={exportDateRange}
+              onChange={(dates) => setExportDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)}
+            />
+          </div>
+        </Space>
+      </Modal>
+    </Spin>
   );
 };
 
