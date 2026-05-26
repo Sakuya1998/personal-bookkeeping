@@ -45,9 +45,12 @@ User (用户)
 | ✅ 分类 CRUD | ✅ GET/POST/PUT/DELETE categories (含树形结构) | ✅ CategoriesPage (Tabs 收入/支出, 表格) |
 | ✅ 交易记录 CRUD | ✅ GET/POST/PUT/DELETE transactions (分页+筛选) | ✅ TransactionsPage (表格+筛选+Modal表单) |
 | ✅ 汇率管理 | ✅ GET/POST/DELETE exchange-rates, GET latest | ✅ ExchangeRatesPage (表格+新增表单) |
-| ✅ 仪表盘 | ✅ GET /ledgers/:id/summary | ✅ DashboardPage (统计卡片+最近记录+支出排行) |
-| ✅ 设置页 | — | ✅ 占位页 (用户名禁用, 邮箱可编辑但无后端) |
-| ✅ 异步导出/导入 | ✅ Queue + Task handler (CSV/JSON) | ❌ 无前端入口 |
+| ✅ 仪表盘 | ✅ GET /ledgers/:id/summary, GET monthly-trend, GET category-breakdown | ✅ DashboardPage (统计卡片+折线图+环形图) |
+| ✅ 日历视图 | ✅ GET /ledgers/:id/daily-transactions | ✅ CalendarViewPage (月份切换+每日收支+交易详情) |
+| ✅ 批量操作 | ✅ POST /transactions/batch-delete, PUT /transactions/batch-update | ✅ TransactionsPage (rowSelection+批量删除+分类修改Modal) |
+| ✅ 导出 | ✅ GET /ledgers/:id/export?format=csv\|json | ✅ 仪表盘导出按钮 |
+| ✅ 设置页 | ✅ PUT /auth/password, PUT /auth/email | ✅ SettingsPage (修改密码+修改邮箱) |
+| ✅ 标签管理 | ✅ GET /ledgers/:id/tags | ✅ 标签在交易表单中录入 |
 | ✅ 健康检查 | ✅ GET /health (含 DB ping) | — |
 | ✅ 默认数据 | ✅ 注册时自动创建两个账本 + 13 个分类 | — |
 
@@ -136,21 +139,18 @@ User (用户)
 - 仪表盘 (收入/支出/结余统计)
 - Docker Compose 一键部署
 
-### Phase 2 🚧 本期规划 — 体验完善与数据洞察
-> 周期: 预计 4-6 周 | 目标: 从"能用"到"好用"
+### Phase 2 ✅ 已完成 — 体验完善与数据洞察 (v2.0 Insight)
+> 周期: 已完成 | 目标: 从"能用"到"好用"
 
-| 优先级 | 功能 | 用户故事 | 工作量 |
-|--------|------|---------|--------|
-| P0 | 交易记录视图优化 — 日历模式 | 作为用户, 我想按日历查看每天收支 | 3d |
-| P0 | 月度收支图表 (柱状图/折线图) | 作为用户, 我想看到月度支出趋势 | 3d |
-| P0 | 分类支出饼图 | 作为用户, 我想直观看到钱花在哪 | 2d |
-| P0 | 交易记录批量删除 | 作为用户, 我想批量删除不需要的记录 | 1d |
-| P1 | 数据导入/导出 UI | 作为用户, 我想从 CSV 导入或导出数据 | 3d |
-| P1 | 账本归档/恢复功能前端 | 作为用户, 我想归档不用的账本但不丢失数据 | 1d |
-| P1 | 标签过滤 + 标签管理 | 作为用户, 我想按标签筛选交易 | 2d |
-| P1 | 个人设置 — 修改密码/邮箱 | 作为用户, 我想修改我的账户信息 | 2d |
-| P2 | 交易记录搜索高亮 | 作为用户, 我想看到搜索结果高亮 | 1d |
-| P2 | 多选批量调整分类 | 作为用户, 我想批量修改交易的分类 | 2d |
+已实现功能：
+- 📊 仪表盘折线图 (月度收支趋势) + 环形图 (分类支出分布)
+- 📅 日历视图 (月份切换 + 每日收支 + 交易详情)
+- 🗑️ 批量删除交易 + 批量修改分类
+- 📤 数据导出 (CSV/JSON)
+- 🏷️ 标签管理 (录入 + 查询)
+- ⚙️ 设置页 (修改密码/修改邮箱)
+- 🔍 交易搜索关键词高亮
+- ⏳ Skeleton 骨架屏加载
 
 ### Phase 3 ⏳ 短期规划 — 智能记账与洞察深化
 > 周期: Phase 2 完成后 | 目标: 数据价值最大化

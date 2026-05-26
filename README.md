@@ -1,0 +1,150 @@
+# Personal Bookkeeping
+
+> 轻量级多账本记账工具，主打多币种支持与简洁记账体验。
+
+## 技术栈
+
+| 层级 | 选型 |
+|------|------|
+| 前端 | React + TypeScript + Vite + Ant Design 5 + Zustand |
+| 后端 | Go 1.26 + Gin + GORM |
+| 数据库 | PostgreSQL |
+| 缓存 | Memory / Redis / Tiered (L1+L2) |
+| 队列 | Redis Streams / Kafka |
+| 可观测性 | OpenTelemetry + Prometheus |
+| 部署 | Docker Compose + Nginx |
+
+## 快速开始
+
+```bash
+# 克隆
+git clone https://github.com/Sakuya1998/personal-bookkeeping.git
+cd personal-bookkeeping
+
+# 启动 (PostgreSQL + Redis + 前后端)
+docker compose up -d
+
+# 前端: http://localhost:3000
+# API:  http://localhost:8000/api/v1
+# Swagger: http://localhost:8000/swagger/index.html
+```
+
+## 功能
+
+### v1.0 (MVP) ✅
+- 用户注册/登录/登出 (JWT 认证)
+- 多账本管理 (自定义本位币)
+- 分类管理 (收入/支出 + 树形层级)
+- 交易记录 CRUD (多币种 + 汇率自动折算)
+- 汇率管理 (手动录入 + 反向计算)
+- 仪表盘 (收入/支出/结余 + 分类排行)
+- Docker Compose 一键部署
+
+### v2.0 (Insight) ✅
+- 数据可视化 (折线图 + 环形图)
+- 日历视图 (月份切换 + 每日收支)
+- 批量操作 (批量删除/修改分类)
+- 数据导出 (CSV/JSON)
+- 标签管理
+- 设置页 (修改密码/邮箱)
+- 搜索结果高亮
+- Skeleton 骨架屏加载
+
+### v3.0 (Smart) ⏳
+- 周期性交易 (订阅/租金自动生成)
+- PDF 报表
+- 拍照记账 (OCR)
+- 支出预警
+- 汇率自动更新
+- PWA 移动适配
+
+## 项目结构
+
+```
+backend/
+├── cmd/server/          # 入口
+├── internal/
+│   ├── app/
+│   │   ├── handler/     # HTTP handler
+│   │   ├── middleware/   # 中间件 (auth/CORS/otel)
+│   │   ├── model/       # GORM 模型
+│   │   ├── repository/  # 数据库连接 + 迁移
+│   │   ├── router/      # 路由
+│   │   ├── service/     # 业务逻辑
+│   │   └── task/        # 异步任务
+│   └── infra/
+│       ├── cache/       # 缓存 (memory/redis/tiered)
+│       ├── config/      # Viper 配置
+│       ├── logger/      # slog 日志
+│       ├── otel/        # OpenTelemetry
+│       └── queue/       # 队列 (redis streams/kafka)
+├── Dockerfile
+├── config.yaml
+└── go.mod
+
+frontend/
+├── src/
+│   ├── api/             # HTTP 客户端 + 类型
+│   ├── pages/           # 页面组件
+│   ├── store/           # Zustand 状态
+│   ├── utils/           # 工具函数
+│   └── components/      # 通用组件
+├── Dockerfile
+├── nginx.conf
+└── vite.config.ts
+
+docker-compose.yml       # 一键部署
+docs/                    # 产品文档
+```
+
+## API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /api/v1/auth/register | 注册 |
+| POST | /api/v1/auth/login | 登录 |
+| POST | /api/v1/auth/logout | 登出 |
+| GET | /api/v1/auth/me | 当前用户 |
+| PUT | /api/v1/auth/password | 修改密码 |
+| PUT | /api/v1/auth/email | 修改邮箱 |
+| GET/POST | /api/v1/ledgers | 账本列表/创建 |
+| GET/PUT/DELETE | /api/v1/ledgers/:id | 账本详情/更新/删除 |
+| GET | /api/v1/ledgers/:id/summary | 账本统计 |
+| GET | /api/v1/ledgers/:id/monthly-trend | 月度趋势 |
+| GET | /api/v1/ledgers/:id/category-breakdown | 分类分布 |
+| GET | /api/v1/ledgers/:id/daily-transactions | 日历数据 |
+| GET | /api/v1/ledgers/:id/export | 导出 CSV/JSON |
+| GET | /api/v1/ledgers/:id/tags | 标签列表 |
+| GET/POST | /api/v1/.../categories | 分类管理 |
+| GET/POST | /api/v1/.../transactions | 交易记录 |
+| POST | /api/v1/transactions/batch-delete | 批量删除 |
+| PUT | /api/v1/transactions/batch-update | 批量改分类 |
+| GET/POST | /api/v1/exchange-rates | 汇率管理 |
+
+完整 API 文档见 [docs/api-design.md](docs/api-design.md)
+
+## 配置
+
+环境变量覆盖 `config.yaml`:
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| DB_HOST | PostgreSQL 地址 | localhost |
+| DB_PORT | PostgreSQL 端口 | 5432 |
+| REDIS_ADDR | Redis 地址 | localhost:6379 |
+| JWT_SECRET | JWT 密钥 | (config.yaml) |
+| CACHE_TYPE | 缓存类型 | tiered |
+| QUEUE_TYPE | 队列类型 | memory |
+
+## 文档
+
+- [产品规划](docs/product-plan-v1.md)
+- [API 设计](docs/api-design.md)
+- [架构设计](docs/architecture.md)
+- [路线图](docs/roadmap.md)
+- [测试计划](docs/test-plan.md)
+- [用户流程](docs/ux-flows.md)
+
+## 许可
+
+MIT
