@@ -53,6 +53,9 @@ func testEngine(t *testing.T) *gin.Engine {
 	if database.GetDB() == nil {
 		t.Skip("requires PostgreSQL — database not available")
 	}
+	if err := database.Ping(); err != nil {
+		t.Skipf("requires PostgreSQL — ping failed: %v", err)
+	}
 
 	r := gin.New()
 	routes.Setup(r, cfg)
