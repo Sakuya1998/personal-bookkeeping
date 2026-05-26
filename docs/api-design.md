@@ -1,6 +1,6 @@
 # API 接口设计
 
-> 文档版本: v2.0 | 最后更新: 2026-05-26
+> 文档版本: v3.0 | 最后更新: 2026-05-27
 > 基础路径: `/api/v1`
 > 数据格式: JSON
 
@@ -873,6 +873,287 @@ Token 通过 `POST /auth/login` 或 `POST /auth/register` 获取。
 - 无交易记录的天数不返回 (前端用 0 填充)
 - 该接口有缓存, TTL 5 分钟
 
+---
+
+### 2.8 周期性规则 (Recurring)
+
+所有接口需认证。
+
+#### `GET /api/v1/recurring`
+
+获取当前用户的周期性规则列表。可选按账本筛选。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| ledger_id | string | 否 | 按账本筛选 |
+
+**响应** (200):
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "data": [
+    {
+      "id": "550e8400-...",
+      "ledger_id": "...",
+      "category_id": "...",
+      "type": "expense",
+      "amount": 3000.00,
+      "currency": "CNY",
+      "frequency": "monthly",
+      "interval": 1,
+      "start_date": "2026-01-01",
+      "end_date": "2026-12-31",
+      "description": "房租",
+      "tags": ["固定支出"],
+      "next_run_date": "2026-06-01",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+- `frequency` 取值: `daily`, `weekly`, `monthly`, `yearly`
+- `next_run_date` 由服务端根据 `frequency` + `interval` + `start_date` 自动计算
+
+#### `POST /api/v1/recurring`
+
+创建周期性规则。
+
+**请求体**:
+```json
+{
+  "ledger_id": "...",
+  "category_id": "...",
+  "type": "expense",
+  "amount": 3000.00,
+  "currency": "CNY",
+  "frequency": "monthly",
+  "interval": 1,
+  "start_date": "2026-01-01",
+  "end_date": "2026-12-31",
+  "description": "房租",
+  "tags": ["固定支出"]
+}
+```
+
+| 字段 | 类型 | 必填 | 约束 |
+|------|------|------|------|
+| ledger_id | string | 是 | UUID |
+| category_id | string | 是 | UUID |
+| type | string | 是 | "income" 或 "expense" |
+| amount | number | 是 | 大于 0 |
+| currency | string | 否 | 默认 "CNY" |
+| frequency | string | 是 | daily/weekly/monthly/yearly |
+| interval | int | 否 | 默认 1 |
+| start_date | string | 是 | YYYY-MM-DD |
+| end_date | string | 否 | 无结束日期 |
+| description | string | 否 | 文本 |
+| tags | string[] | 否 | 标签数组 |
+
+**响应** (201): 返回创建的规则对象。
+
+#### `PUT /api/v1/recurring/:id`
+
+更新周期性规则。支持部分更新。
+
+**响应** (200): 返回更新后的规则对象。
+
+#### `DELETE /api/v1/recurring/:id`
+
+删除周期性规则。
+
+**响应** (200):
+```json
+{ "code": 200, "message": "ok" }
+```
+
+#### `GET /api/v1/recurring/upcoming`
+
+获取未来 N 天内即将到期的周期性交易。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| days | int | 否 | 未来天数, 默认 7, 最大 90 |
+
+**响应** (200): 返回规则列表 + 下次执行日期。
+
+---
+
+### 2.9 预算管理 (Budget)
+
+所有接口需认证。
+
+#### `POST /api/v1/budgets`
+
+创建或更新预算 (upsert)。同一 `ledger_id + category_id + month` 组合重复创建返回 200 (upsert 语义)。
+
+**请求体**:
+```json
+{
+  "ledger_id": "...",
+  "category_id": "...",
+  "month": "2026-06",
+  "amount": 2000.00
+}
+```
+
+| 字段 | 类型 | 必填 | 约束 |
+|------|------|------|------|
+| ledger_id | string | 是 | UUID |
+| category_id | string | 否 | null = 全局预算 |
+| month | string | 是 | YYYY-MM 格式 |
+| amount | number | 是 | 大于 0 |
+
+**响应**: 201 (新建) / 200 (更新)
+
+#### `GET /api/v1/budgets`
+
+获取预算列表。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| month | string | 是 | YYYY-MM 格式 |
+
+**响应** (200): 返回预算列表。
+
+#### `GET /api/v1/budgets/status`
+
+获取各分类预算 vs 实际支出对比。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| month | string | 是 | YYYY-MM 格式 |
+
+**响应** (200):
+```json
+{
+  "code": 200,
+  "data": [
+    {
+      "budget_id": "...",
+      "category_id": "...",
+      "category_name": "餐饮",
+      "budget": 2000.00,
+      "spent": 850.00,
+      "percentage": 42.5,
+      "over_budget": false
+    },
+    {
+      "budget_id": "...",
+      "category_id": null,
+      "category_name": "全局预算",
+      "budget": 10000.00,
+      "spent": 12000.00,
+      "percentage": 120.0,
+      "over_budget": true
+    }
+  ]
+}
+```
+
+- `over_budget = spent >= budget`
+
+#### `DELETE /api/v1/budgets/:id`
+
+删除预算。
+
+---
+
+### 2.10 报表 (Report)
+
+所有接口需认证。
+
+#### `GET /api/v1/ledgers/:ledger_id/report`
+
+生成并下载 PDF 报表。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| period | string | 否 | "monthly" 或 "quarterly", 默认 "monthly" |
+| date | string | 否 | YYYY-MM, 默认当前月 |
+
+**响应** (200): PDF 文件 (Content-Type: application/pdf)。
+
+**文件命名**: `{账本名}_{日期}_report.pdf`
+
+#### `GET /api/v1/ledgers/:ledger_id/report/preview`
+
+预览报表数据 (JSON)，便于前端确认内容后再下载。
+
+**查询参数**: 同上。
+
+**响应** (200):
+```json
+{
+  "code": 200,
+  "data": {
+    "ledger_name": "日常账本",
+    "period": "monthly",
+    "date": "2026-06",
+    "total_income": 15000.00,
+    "total_expense": 8210.50,
+    "balance": 6789.50,
+    "exchange_rate_base": "CNY",
+    "categories": [
+      { "name": "餐饮", "income": 0, "expense": 3200.00 },
+      { "name": "交通", "income": 0, "expense": 580.00 }
+    ],
+    "daily_totals": [
+      { "date": "2026-06-01", "income": 0, "expense": 235.50 }
+    ]
+  }
+}
+```
+
+---
+
+### 2.11 拍照记账 (OCR)
+
+所有接口需认证。
+
+#### `POST /api/v1/ocr/receipt`
+
+上传小票图片进行 OCR 识别。
+
+**请求格式**: `multipart/form-data`
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| image | file | 是 | JPG 或 PNG, 最大 10MB |
+
+**响应** (200):
+```json
+{
+  "code": 200,
+  "data": {
+    "text": "便利店\n日期:2026-06-01\n合计:¥35.00\n找零:0.00",
+    "amount": 35.00,
+    "date": "2026-06-01",
+    "merchant": "便利店",
+    "raw_text": "便利店\n日期:2026-06-01\n合计:¥35.00\n找零:0.00"
+  }
+}
+```
+
+- `amount`: 从识别文本中提取的最大金额 (匹配 ¥/￥/CNY 前缀 + 两位小数)
+- `date`: 从识别文本中提取的日期 (YYYY-MM-DD)，未识别到则返回当天
+- `merchant`: 从识别文本前几行中推测的商家名称
+- 所有字段均为 `omitempty`，前端根据存在性决定是否自动填充交易表单
+
+---
+
 ## 3. 错误码汇总
 
 | HTTP 状态码 | Message 示例 | 典型场景 |
@@ -897,6 +1178,7 @@ Token 通过 `POST /auth/login` 或 `POST /auth/register` 获取。
 ## 4. API 路由总表
 
 ```
+# 认证
 POST   /api/v1/auth/register                           # 注册
 POST   /api/v1/auth/login                              # 登录
 GET    /api/v1/auth/me                                  # 当前用户
@@ -904,6 +1186,7 @@ POST   /api/v1/auth/logout                              # 登出
 PUT    /api/v1/auth/password                            # 修改密码
 PUT    /api/v1/auth/email                               # 修改邮箱
 
+# 账本
 GET    /api/v1/ledgers                                  # 账本列表
 POST   /api/v1/ledgers                                  # 创建账本
 GET    /api/v1/ledgers/:ledger_id                       # 账本详情
@@ -916,11 +1199,13 @@ GET    /api/v1/ledgers/:ledger_id/daily-transactions     # 日历汇总
 GET    /api/v1/ledgers/:ledger_id/export                 # 导出交易
 GET    /api/v1/ledgers/:ledger_id/tags                   # 标签列表
 
+# 分类
 GET    /api/v1/ledgers/:ledger_id/categories            # 分类列表（树形）
 POST   /api/v1/categories                               # 创建分类
 PUT    /api/v1/categories/:id                            # 更新分类
 DELETE /api/v1/categories/:id                            # 删除分类
 
+# 交易
 GET    /api/v1/ledgers/:ledger_id/transactions           # 交易列表（分页+筛选）
 POST   /api/v1/transactions                              # 创建交易
 PUT    /api/v1/transactions/:id                          # 更新交易
@@ -928,14 +1213,36 @@ DELETE /api/v1/transactions/:id                          # 删除交易
 POST   /api/v1/transactions/batch-delete                 # 批量删除
 PUT    /api/v1/transactions/batch-update                 # 批量修改
 
+# 汇率
 GET    /api/v1/exchange-rates                            # 汇率列表
 POST   /api/v1/exchange-rates                            # 创建汇率
 GET    /api/v1/exchange-rates/latest                     # 最新汇率
 DELETE /api/v1/exchange-rates/:id                        # 删除汇率
 
+# v3.0 周期性规则
+GET    /api/v1/recurring                                 # 规则列表
+POST   /api/v1/recurring                                 # 创建规则
+PUT    /api/v1/recurring/:id                             # 更新规则
+DELETE /api/v1/recurring/:id                             # 删除规则
+GET    /api/v1/recurring/upcoming                        # 即将到期
+
+# v3.0 预算
+POST   /api/v1/budgets                                   # 创建/更新预算 (upsert)
+GET    /api/v1/budgets                                   # 预算列表
+GET    /api/v1/budgets/status                            # 预算 vs 实际状态
+DELETE /api/v1/budgets/:id                               # 删除预算
+
+# v3.0 报表
+GET    /api/v1/ledgers/:ledger_id/report                 # 下载 PDF 报表
+GET    /api/v1/ledgers/:ledger_id/report/preview          # 报表数据预览
+
+# v3.0 拍照记账
+POST   /api/v1/ocr/receipt                               # OCR 识别小票
+
+# 系统
 GET    /api/v1/health                                    # 健康检查
 GET    /swagger/*any                                     # Swagger UI
 GET    /metrics                                          # Prometheus 指标
 ```
 
-总计: 33 个端点 (含 Swagger 和 Metrics), 不含 Swagger/Metrics 为 31 个业务端点
+**总计**: 46 个端点 (含 Swagger 和 Metrics), 不含为 44 个业务端点

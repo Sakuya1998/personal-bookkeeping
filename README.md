@@ -50,13 +50,13 @@ docker compose up -d
 - 搜索结果高亮
 - Skeleton 骨架屏加载
 
-### v3.0 (Smart) ⏳
-- 周期性交易 (订阅/租金自动生成)
-- PDF 报表
-- 拍照记账 (OCR)
-- 支出预警
-- 汇率自动更新
-- PWA 移动适配
+### v3.0 (Smart) ✅
+- [x] 周期性交易 (订阅/租金自动生成)
+- [x] PDF 报表
+- [x] 拍照记账 (OCR)
+- [x] 支出预警
+- [x] 汇率自动更新
+- [x] PWA 移动适配
 
 ## 项目结构
 
@@ -119,6 +119,10 @@ docs/                    # 产品文档
 | GET/POST | /api/v1/.../transactions | 交易记录 |
 | POST | /api/v1/transactions/batch-delete | 批量删除 |
 | PUT | /api/v1/transactions/batch-update | 批量改分类 |
+| GET/POST | /api/v1/.../recurring | 周期性规则 CRUD + upcoming |
+| GET/POST | /api/v1/.../budgets | 预算管理 + 状态查询 |
+| POST | /api/v1/ocr/receipt | 拍照记账 (OCR) |
+| GET | /api/v1/.../report | PDF 报表下载/预览 |
 | GET/POST | /api/v1/exchange-rates | 汇率管理 |
 
 完整 API 文档见 [docs/api-design.md](docs/api-design.md)
@@ -135,6 +139,7 @@ docs/                    # 产品文档
 | JWT_SECRET | JWT 密钥 | (config.yaml) |
 | CACHE_TYPE | 缓存类型 | tiered |
 | QUEUE_TYPE | 队列类型 | memory |
+| OCR_ENDPOINT | PaddleOCR API 地址 | http://localhost:9000 |
 
 ## 文档
 
