@@ -51,7 +51,7 @@
 | Service 层 | 汇率 + OCR + 报表 + 汇率更新全部覆盖 (4 个测试文件) | ✅ 已闭环 |
 | Task 层 | CSV/JSON/调度器全部覆盖 (603 行, 含 goroutine + 去重测试) | ✅ 已闭环 |
 | Middleware | JWT/Token 黑名单/Header 检查 (217 行) | ✅ 已闭环 |
-| 前端 | Zustand / Axios / 货币工具 (3 文件) | ⚠️ 缺组件测试 (BudgetPage/RecurringPage 等新页面) |
+| 前端 | Zustand + Axios + 货币工具 + BudgetPage + RecurringPage (5 文件, 47 测试) | ✅ S3 页面组件测试已补齐 |
 | 配置加载 | 无测试 | ⚠️ 低风险, 配置变更频率低 |
 | CI | 基本 lint + build | ⚠️ 缺覆盖率报告门禁 |
 
@@ -241,7 +241,9 @@ if testing.Short() {
 - [x] Service 层: 报表纯函数测试 (report_test.go, 26 用例)
 - [x] Service 层: 汇率自动更新测试 (rate_updater_test.go, 17 用例)
 - [x] Task 层: 调度器 goroutine + 去重逻辑测试
-- [ ] 前端: BudgetPage / RecurringPage 组件测试（待后续）
+- [x] 前端: BudgetPage 组件测试 (6 用例)
+- [x] 前端: RecurringPage 组件测试 (7 用例)
+- [ ] E2E 测试 (Docker Compose) — 待后续
 
 ---
 
@@ -260,8 +262,8 @@ if testing.Short() {
 | 报表服务 | `service/report_test.go` | ✅ 纯函数测试 |
 | 汇率更新 | `service/rate_updater_test.go` | ✅ mock HTTP + DB 逻辑 |
 | 调度器 | `task/scheduler.go` | ✅ mock queue + goroutine + 去重 |
-| 前端 BudgetPage | `pages/BudgetPage.tsx` | ⚠️ 待后续 |
-| 前端 RecurringPage | `pages/RecurringPage.tsx` | ⚠️ 待后续 |
+| 前端 BudgetPage | `BudgetPage.test.tsx` | ✅ 6 用例: 骨架屏/数据展示/弹窗/提交/删除 |
+| 前端 RecurringPage | `RecurringPage.test.tsx` | ✅ 7 用例: 加载/空态/渲染/弹窗/编辑/删除 |
 
 ---
 
