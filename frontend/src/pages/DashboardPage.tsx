@@ -35,7 +35,7 @@ const DashboardPage: React.FC = () => {
     { title: '日期', dataIndex: 'transaction_date', key: 'date', width: 110 },
     {
       title: '分类', key: 'category', width: 120,
-      render: (_, r: Transaction) => r.category?.name || '-',
+      render: (_: unknown, r: Transaction) => r.category?.name || '-',
     },
     {
       title: '类型', dataIndex: 'type', key: 'type', width: 80,
@@ -43,7 +43,7 @@ const DashboardPage: React.FC = () => {
     },
     {
       title: '金额', key: 'amount', width: 120,
-      render: (_, r: Transaction) => (
+      render: (_: unknown, r: Transaction) => (
         <span style={{ color: r.type === 'income' ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}>
           {r.type === 'income' ? '+' : '-'}{formatCurrency(r.base_amount, currentLedger.base_currency)}
         </span>

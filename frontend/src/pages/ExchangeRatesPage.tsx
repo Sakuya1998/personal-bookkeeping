@@ -53,7 +53,7 @@ const ExchangeRatesPage: React.FC = () => {
     { title: '来源', dataIndex: 'source', key: 'source' },
     {
       title: '操作', key: 'action', width: 80,
-      render: (_, r: ExchangeRate) => (
+      render: (_: unknown, r: ExchangeRate) => (
         <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>
           <Button size="small" danger icon={<DeleteOutlined />} />
         </Popconfirm>

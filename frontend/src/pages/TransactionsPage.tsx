@@ -104,7 +104,7 @@ const TransactionsPage: React.FC = () => {
 
   const columns = [
     { title: '日期', dataIndex: 'transaction_date', key: 'date', width: 110 },
-    { title: '分类', key: 'category', width: 120, render: (_, r: Transaction) => {
+    { title: '分类', key: 'category', width: 120, render: (_: unknown, r: Transaction) => {
       const cat = r.category;
       return cat ? `${cat.icon || ''} ${cat.name}` : '-';
     }},
@@ -112,7 +112,7 @@ const TransactionsPage: React.FC = () => {
       render: (t: string) => <Tag color={t === 'income' ? 'green' : 'red'}>{t === 'income' ? '收入' : '支出'}</Tag>,
     },
     { title: '金额', key: 'amount', width: 150,
-      render: (_, r: Transaction) => {
+      render: (_: unknown, r: Transaction) => {
         const cur = currentLedger?.base_currency || 'CNY';
         return (
           <span style={{ color: r.type === 'income' ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}>
@@ -125,7 +125,7 @@ const TransactionsPage: React.FC = () => {
     { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true },
     {
       title: '操作', key: 'action', width: 100,
-      render: (_, r: Transaction) => (
+      render: (_: unknown, r: Transaction) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
           <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>
