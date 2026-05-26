@@ -123,6 +123,55 @@ func (e *ExchangeRate) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+// RecurringRule 周期性交易规则
+type RecurringRule struct {
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	UserID      uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"`
+	LedgerID    uuid.UUID  `gorm:"type:uuid;not null;index" json:"ledger_id"`
+	CategoryID  uuid.UUID  `gorm:"type:uuid;not null" json:"category_id"`
+	Type        string     `gorm:"size:10;not null;check:type IN ('income','expense')" json:"type"`
+	Amount      float64    `gorm:"type:decimal(18,2);not null" json:"amount"`
+	Currency    string     `gorm:"size:10;default:CNY" json:"currency"`
+	Description *string    `gorm:"type:text" json:"description"`
+	Tags        *string    `gorm:"type:text" json:"tags"`
+	Frequency   string     `gorm:"size:20;not null" json:"frequency"` // daily/weekly/monthly/yearly
+	Interval    int        `gorm:"default:1" json:"interval"`         // every N days/weeks/months
+	DayOfMonth  *int       `json:"day_of_month"`                      // for monthly: 1-31
+	Weekday     *int       `json:"weekday"`                           // for weekly: 0=Sun, 1=Mon...
+	StartDate   string     `gorm:"type:date;not null" json:"start_date"`
+	EndDate     *string    `gorm:"type:date" json:"end_date"`
+	NextRunDate string     `gorm:"type:date;not null;index" json:"next_run_date"`
+	IsActive    bool       `gorm:"default:true" json:"is_active"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+func (r *RecurringRule) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == uuid.Nil {
+		r.ID = uuid.New()
+	}
+	return nil
+}
+
 func (e *ExchangeRate) TableName() string {
 	return "exchange_rates"
+}
+
+// Budget 按月/分类预算
+type Budget struct {
+	ID         uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	UserID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"`
+	LedgerID   uuid.UUID  `gorm:"type:uuid;not null;index" json:"ledger_id"`
+	CategoryID *uuid.UUID `gorm:"type:uuid;index" json:"category_id"` // null = 全局预算
+	Month      string     `gorm:"size:7;not null" json:"month"`       // "2026-05"
+	Amount     float64    `gorm:"type:decimal(18,2);not null" json:"amount"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
+func (b *Budget) BeforeCreate(tx *gorm.DB) error {
+	if b.ID == uuid.Nil {
+		b.ID = uuid.New()
+	}
+	return nil
 }

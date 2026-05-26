@@ -59,3 +59,15 @@ otel:
   service_name: "personal-bookkeeping"
   traces_exporter: "none"       # none | stdout
   metrics_path: "/metrics"
+
+scheduler:
+  recurring_check_minutes: 60  # 周期性交易检查间隔（分钟）
+
+exchange_rate:
+  provider: "exchangerate-api"  # exchangerate-api | frankfurter
+  api_key: ""                   # exchangerate-api 需要 API key
+  base: "CNY"                   # 基准货币（常用账本位币）
+
+ocr:
+  provider: "paddleocr"         # paddleocr
+  endpoint: "http://localhost:9000"  # PaddleOCR API 地址

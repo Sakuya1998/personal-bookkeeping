@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Table, Button, Modal, Form, Input, Select, DatePicker, Tag, Space, message, Popconfirm, Row, Col, Skeleton } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TagsOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TagsOutlined, CameraOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse, PaginatedData, Transaction, Category } from '../api/types';
@@ -22,6 +22,7 @@ const TransactionsPage: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [batchCategoryModalOpen, setBatchCategoryModalOpen] = useState(false);
   const [batchCategoryId, setBatchCategoryId] = useState<string | undefined>(undefined);
+  const [ocrLoading, setOcrLoading] = useState(false);
 
   const loadTxns = useCallback(async () => {
     if (!currentLedger) return;
@@ -53,12 +54,18 @@ const TransactionsPage: React.FC = () => {
       tags: (values.tags as string[]) || [],
     };
     try {
+      let overBudget = false;
       if (editing) {
-        await client.put(`/transactions/${editing.id}`, data);
+        const res = await client.put<ApiResponse<{ transaction: Transaction; over_budget: boolean }>>(`/transactions/${editing.id}`, data);
+        overBudget = res.data.data.over_budget;
         message.success('更新成功');
       } else {
-        await client.post('/transactions', data);
+        const res = await client.post<ApiResponse<{ transaction: Transaction; over_budget: boolean }>>('/transactions', data);
+        overBudget = res.data.data.over_budget;
         message.success('创建成功');
+      }
+      if (overBudget) {
+        message.warning({ content: '⚠️ 该笔交易已超出当月预算，请注意控制支出', duration: 5, key: 'budget_warning' });
       }
       setModalOpen(false);
       setEditing(null);
@@ -122,6 +129,40 @@ const TransactionsPage: React.FC = () => {
     form.resetFields();
     form.setFieldsValue({ currency: 'CNY', transaction_date: dayjs(), tags: [] });
     setModalOpen(true);
+  };
+
+  const handleOCRUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      setOcrLoading(true);
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await client.post<ApiResponse<{ text: string; amount?: number; date?: string; merchant?: string }>>('/ocr/receipt', formData);
+        const data = res.data.data;
+        const vals: Record<string, unknown> = { currency: 'CNY', tags: [] };
+        if (data.amount) vals.amount = data.amount;
+        if (data.date) vals.transaction_date = dayjs(data.date);
+        if (data.merchant) vals.description = data.merchant;
+        if (data.text) vals.description = (vals.description ? vals.description + ' ' : '') + data.text.slice(0, 100);
+        form.resetFields();
+        form.setFieldsValue(vals);
+        if (data.amount) message.success(`识别到金额: ¥${data.amount}${data.merchant ? '，商家: ' + data.merchant : ''}`);
+        else message.info('未识别到金额，请手动填写');
+        setEditing(null);
+        setModalOpen(true);
+      } catch (err: unknown) {
+        const apiErr = err as { response?: { data?: { message?: string } } };
+        message.error(apiErr.response?.data?.message || '识别失败');
+      } finally {
+        setOcrLoading(false);
+      }
+    };
+    input.click();
   };
 
   const openEdit = (txn: Transaction) => {
@@ -214,6 +255,7 @@ const TransactionsPage: React.FC = () => {
                 </>
               )}
               <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增</Button>
+              <Button icon={<CameraOutlined />} loading={ocrLoading} onClick={handleOCRUpload}>拍照记账</Button>
             </Space>
           </Col>
         </Row>

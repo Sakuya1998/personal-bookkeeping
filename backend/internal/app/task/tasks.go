@@ -12,6 +12,8 @@ import (
 
 	"personal-bookkeeping/internal/app/model"
 	"personal-bookkeeping/internal/app/repository"
+	"personal-bookkeeping/internal/app/service"
+	"personal-bookkeeping/internal/infra/config"
 	"personal-bookkeeping/internal/infra/queue"
 
 	"github.com/google/uuid"
@@ -19,8 +21,10 @@ import (
 
 // Task type constants
 const (
-	TypeExportReport       = "export_report"
-	TypeImportTransactions = "import_transactions"
+	TypeExportReport         = "export_report"
+	TypeImportTransactions   = "import_transactions"
+	TypeProcessRecurring     = "process_recurring"
+	TypeUpdateExchangeRates  = "update_exchange_rates"
 )
 
 // ExportReportPayload 导出报表任务参数
@@ -44,7 +48,11 @@ type ImportTransactionsPayload struct {
 func RegisterAll(q queue.Queue) {
 	q.Register(TypeExportReport, handleExportReport)
 	q.Register(TypeImportTransactions, handleImportTransactions)
-	slog.Info("task handlers registered", "types", []string{TypeExportReport, TypeImportTransactions})
+	q.Register(TypeProcessRecurring, handleProcessRecurring)
+	q.Register(TypeUpdateExchangeRates, handleUpdateExchangeRates)
+	slog.Info("task handlers registered", "types", []string{
+		TypeExportReport, TypeImportTransactions, TypeProcessRecurring, TypeUpdateExchangeRates,
+	})
 }
 
 // handleExportReport 异步导出报表：查询交易记录 → 生成文件 → 落盘
@@ -247,4 +255,111 @@ func nullableStr(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// handleProcessRecurring 每日检查周期性规则，自动生成交易记录。
+func handleProcessRecurring(ctx context.Context, task queue.Task) error {
+	db := database.GetDB()
+	if db == nil {
+		return fmt.Errorf("process_recurring: database not available")
+	}
+
+	today := time.Now().Format("2006-01-02")
+
+	var rules []models.RecurringRule
+	if err := db.Where("is_active = true AND next_run_date <= ?", today).Find(&rules).Error; err != nil {
+		return fmt.Errorf("process_recurring: query rules: %w", err)
+	}
+
+	created := 0
+	for _, rule := range rules {
+		// Create transaction
+		txn := models.Transaction{
+			ID:              uuid.New(),
+			LedgerID:        rule.LedgerID,
+			UserID:          rule.UserID,
+			CategoryID:      rule.CategoryID,
+			Type:            rule.Type,
+			Amount:          rule.Amount,
+			Currency:        rule.Currency,
+			BaseAmount:      rule.Amount, // same currency assumption
+			ExchangeRate:    1.0,
+			Description:     rule.Description,
+			TransactionDate: today,
+			Tags:            rule.Tags,
+		}
+		if err := db.Create(&txn).Error; err != nil {
+			slog.Error("process_recurring: failed to create transaction", "rule_id", rule.ID, "error", err)
+			continue
+		}
+		created++
+
+		// Compute next run date
+		parsed, err := time.Parse("2006-01-02", rule.NextRunDate)
+		if err != nil {
+			parsed = time.Now()
+		}
+		nextDate := computeRecurringNext(parsed, rule.Frequency, rule.Interval, rule.DayOfMonth, rule.Weekday)
+		updates := map[string]interface{}{
+			"next_run_date": nextDate.Format("2006-01-02"),
+		}
+
+		// Check if past end_date
+		if rule.EndDate != nil && *rule.EndDate != "" && nextDate.Format("2006-01-02") > *rule.EndDate {
+			updates["is_active"] = false
+		}
+
+		db.Model(&rule).Updates(updates)
+	}
+
+	slog.Info("process_recurring: completed", "processed", len(rules), "created", created)
+	return nil
+}
+
+func computeRecurringNext(from time.Time, freq string, interval int, dayOfMonth, weekday *int) time.Time {
+	from = time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
+	if interval <= 0 {
+		interval = 1
+	}
+
+	switch freq {
+	case "daily":
+		return from.AddDate(0, 0, interval)
+	case "weekly":
+		if weekday == nil {
+			return from.AddDate(0, 0, 7*interval)
+		}
+		return from.AddDate(0, 0, 7*interval)
+	case "monthly":
+		dom := 1
+		if dayOfMonth != nil {
+			dom = *dayOfMonth
+		}
+		next := time.Date(from.Year(), from.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		lastDay := time.Date(next.Year(), next.Month()+1, 0, 0, 0, 0, 0, time.UTC).Day()
+		if dom > lastDay {
+			dom = lastDay
+		}
+		return time.Date(next.Year(), next.Month(), dom, 0, 0, 0, 0, time.UTC)
+	case "yearly":
+		return time.Date(from.Year()+1, time.January, 1, 0, 0, 0, 0, time.UTC)
+	default:
+		return from.AddDate(0, 0, interval)
+	}
+}
+
+// handleUpdateExchangeRates 从外部 API 拉取最新汇率并写入 DB。
+func handleUpdateExchangeRates(ctx context.Context, task queue.Task) error {
+	_ = ctx // context used for tracing, no external cancellation needed
+	_ = task
+
+	cfg := config.Load()
+	if cfg == nil {
+		return fmt.Errorf("update_exchange_rates: config not available")
+	}
+
+	if err := services.UpdateExchangeRates(&cfg.ExchangeRate); err != nil {
+		return fmt.Errorf("update_exchange_rates: %w", err)
+	}
+	return nil
 }

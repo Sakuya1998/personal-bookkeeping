@@ -102,6 +102,13 @@ func main() {
 		task.RegisterAll(q)
 		q.Start(context.Background())
 		slog.Info("queue started", "type", cfg.Queue.Type, "workers", cfg.Queue.Workers)
+
+		// Start recurring transaction scheduler
+		interval := time.Duration(cfg.Scheduler.RecurringCheckMinutes) * time.Minute
+		task.StartRecurringScheduler(context.Background(), q, interval)
+
+		// Start exchange rate auto-update scheduler (daily)
+		task.StartExchangeRateScheduler(context.Background(), q)
 	}
 
 	// Connect database

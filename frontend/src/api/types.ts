@@ -116,6 +116,52 @@ export interface DailyTransactionItem {
   count: number;
 }
 
+/** 周期性交易规则 */
+export interface RecurringRule {
+  id: string;
+  user_id: string;
+  ledger_id: string;
+  category_id: string;
+  type: 'income' | 'expense';
+  amount: number;
+  currency: string;
+  description: string | null;
+  tags: string | null;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  interval: number;
+  day_of_month: number | null;
+  weekday: number | null;
+  start_date: string;
+  end_date: string | null;
+  next_run_date: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 预算 */
+export interface Budget {
+  id: string;
+  user_id: string;
+  ledger_id: string;
+  category_id: string | null;
+  month: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 预算执行状态 */
+export interface BudgetStatusItem {
+  budget_id?: string;
+  category_id?: string;
+  name?: string;
+  icon?: string;
+  budget: number;
+  spent: number;
+  percentage: number;
+}
+
 export interface AuthResponse {
   token: string;
   user: User;

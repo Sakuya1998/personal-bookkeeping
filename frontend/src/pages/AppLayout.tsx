@@ -3,6 +3,7 @@ import { Layout, Menu, Select, Button, Dropdown } from 'antd';
 import {
   DashboardOutlined, WalletOutlined, TransactionOutlined, AppstoreOutlined,
   DollarOutlined, SettingOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
+  SyncOutlined, FundOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import client from '../api/client';
@@ -39,6 +40,8 @@ const AppLayout: React.FC = () => {
     { key: '/ledgers', icon: <WalletOutlined />, label: '账本管理' },
     { key: '/categories', icon: <AppstoreOutlined />, label: '分类管理' },
     { key: '/exchange-rates', icon: <DollarOutlined />, label: '汇率管理' },
+    { key: '/recurring', icon: <SyncOutlined />, label: '周期规则' },
+    { key: '/budgets', icon: <FundOutlined />, label: '预算管理' },
     { key: '/settings', icon: <SettingOutlined />, label: '设置' },
   ];
 

@@ -92,5 +92,29 @@ func Setup(r *gin.Engine, cfg *config.Config) {
 		protected.POST("/exchange-rates", rate.Create)
 		protected.GET("/exchange-rates/latest", rate.Latest)
 		protected.DELETE("/exchange-rates/:id", rate.Delete)
+
+		// Recurring rules
+		rec := handlers.NewRecurringHandler()
+		protected.GET("/recurring", rec.List)
+		protected.POST("/recurring", rec.Create)
+		protected.PUT("/recurring/:id", rec.Update)
+		protected.DELETE("/recurring/:id", rec.Delete)
+		protected.GET("/recurring/upcoming", rec.Upcoming)
+
+		// Budgets
+		bgt := handlers.NewBudgetHandler()
+		protected.POST("/budgets", bgt.Upsert)
+		protected.GET("/budgets", bgt.List)
+		protected.GET("/budgets/status", bgt.Status)
+		protected.DELETE("/budgets/:id", bgt.Delete)
+
+		// Report
+		rpt := handlers.NewReportHandler()
+		protected.GET("/ledgers/:ledger_id/report", rpt.GenerateReport)
+		protected.GET("/ledgers/:ledger_id/report/preview", rpt.ReportPreview)
+
+		// OCR
+		ocr := handlers.NewOCRHandler(cfg.OCR.Endpoint)
+		protected.POST("/ocr/receipt", ocr.RecognizeReceipt)
 	}
 }

@@ -13,6 +13,8 @@ import LedgersPage from './pages/LedgersPage';
 import CategoriesPage from './pages/CategoriesPage';
 import ExchangeRatesPage from './pages/ExchangeRatesPage';
 import SettingsPage from './pages/SettingsPage';
+import RecurringPage from './pages/RecurringPage';
+import BudgetPage from './pages/BudgetPage';
 
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const CalendarViewPage = React.lazy(() => import('./pages/CalendarViewPage'));
@@ -45,6 +47,8 @@ const App: React.FC = () => {
               <Route path="categories" element={<CategoriesPage />} />
               <Route path="exchange-rates" element={<ExchangeRatesPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="recurring" element={<RecurringPage />} />
+              <Route path="budgets" element={<BudgetPage />} />
               <Route path="ledgers/:ledger_id/calendar" element={<Suspense fallback={<PageLoading />}><CalendarViewPage /></Suspense>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

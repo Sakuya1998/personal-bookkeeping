@@ -190,7 +190,14 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 	}
 
 	database.GetDB().Preload("Category").First(&txn, txn.ID)
-	RespondJSON(c, http.StatusCreated, txn)
+
+	// Budget check
+	overBudget := CheckBudgetOverrun(database.GetDB(), user.ID, ledgerUUID, categoryUUID, txn.Type, txn.BaseAmount, txn.TransactionDate)
+
+	RespondJSON(c, http.StatusCreated, gin.H{
+		"transaction":  txn,
+		"over_budget":  overBudget,
+	})
 }
 
 // Update  godoc
@@ -290,7 +297,13 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 	database.GetDB().Model(&txn).Updates(updates)
 	database.GetDB().Preload("Category").First(&txn, txn.ID)
 
-	RespondJSON(c, http.StatusOK, txn)
+	// Budget check
+	overBudget := CheckBudgetOverrun(database.GetDB(), user.ID, txn.LedgerID, txn.CategoryID, txn.Type, txn.BaseAmount, txn.TransactionDate)
+
+	RespondJSON(c, http.StatusOK, gin.H{
+		"transaction":  txn,
+		"over_budget":  overBudget,
+	})
 }
 
 // Delete  godoc

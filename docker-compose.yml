@@ -37,6 +37,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      paddleocr:
+        condition: service_healthy
     environment:
       DB_HOST: db
       DB_PORT: "5432"
@@ -49,8 +51,20 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://localhost:5173
       CACHE_TYPE: redis
       CACHE_REDIS_ADDR: redis:6379
+      OCR_ENDPOINT: http://paddleocr:9000
     ports:
       - "8000:8000"
+
+  paddleocr:
+    image: zilliz/paddleocr:2.7-cpu
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build: ./frontend

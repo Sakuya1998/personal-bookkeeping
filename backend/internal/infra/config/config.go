@@ -9,14 +9,17 @@ import (
 )
 
 type Config struct {
-	Server ServerConfig  `mapstructure:"server"`
-	DB     DBConfig      `mapstructure:"db"`
-	JWT    JWTConfig     `mapstructure:"jwt"`
-	CORS   CORSConfig    `mapstructure:"cors"`
-	Log    LogConfig     `mapstructure:"log"`
-	Cache  CacheConfig   `mapstructure:"cache"`
-	Queue  QueueConfig   `mapstructure:"queue"`
-	OTEL   OTELConfig    `mapstructure:"otel"`
+	Server       ServerConfig       `mapstructure:"server"`
+	DB           DBConfig           `mapstructure:"db"`
+	JWT          JWTConfig          `mapstructure:"jwt"`
+	CORS         CORSConfig         `mapstructure:"cors"`
+	Log          LogConfig          `mapstructure:"log"`
+	Cache        CacheConfig        `mapstructure:"cache"`
+	Queue        QueueConfig        `mapstructure:"queue"`
+	OTEL         OTELConfig         `mapstructure:"otel"`
+	Scheduler    SchedulerConfig    `mapstructure:"scheduler"`
+	ExchangeRate ExchangeRateConfig `mapstructure:"exchange_rate"`
+	OCR          OCRConfig          `mapstructure:"ocr"`
 }
 
 type ServerConfig struct {
@@ -109,6 +112,21 @@ type OTELConfig struct {
 	MetricsPath    string `mapstructure:"metrics_path"`
 }
 
+type SchedulerConfig struct {
+	RecurringCheckMinutes int `mapstructure:"recurring_check_minutes"`
+}
+
+type ExchangeRateConfig struct {
+	Provider string `mapstructure:"provider"`   // exchangerate-api | frankfurter
+	APIKey   string `mapstructure:"api_key"`
+	Base     string `mapstructure:"base"`       // base currency for auto-fetch (e.g. USD)
+}
+
+type OCRConfig struct {
+	Provider string `mapstructure:"provider"`   // paddleocr
+	Endpoint string `mapstructure:"endpoint"`   // e.g. http://localhost:9000
+}
+
 func (c *Config) DSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
@@ -178,6 +196,15 @@ func Load() *Config {
 	v.SetDefault("otel.traces_exporter", "none")
 	v.SetDefault("otel.metrics_path", "/metrics")
 
+	v.SetDefault("scheduler.recurring_check_minutes", 60)
+
+	v.SetDefault("exchange_rate.provider", "exchangerate-api")
+	v.SetDefault("exchange_rate.api_key", "")
+	v.SetDefault("exchange_rate.base", "CNY")
+
+	v.SetDefault("ocr.provider", "paddleocr")
+	v.SetDefault("ocr.endpoint", "http://localhost:9000")
+
 	// — Environment variable bindings (backward-compatible names) —
 	envBindings := map[string]string{
 		"server.port":         "SERVER_PORT",
@@ -200,6 +227,7 @@ func Load() *Config {
 		"queue.redis.db":            "QUEUE_REDIS_DB",
 		"queue.redis.stream":        "QUEUE_REDIS_STREAM",
 		"queue.redis.consumer_group": "QUEUE_REDIS_CONSUMER_GROUP",
+		"ocr.endpoint":              "OCR_ENDPOINT",
 	}
 	for key, env := range envBindings {
 		if err := v.BindEnv(key, env); err != nil {

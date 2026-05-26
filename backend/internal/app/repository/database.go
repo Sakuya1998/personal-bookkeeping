@@ -37,6 +37,8 @@ func Init(cfg *config.Config) {
 		&models.Category{},
 		&models.Transaction{},
 		&models.ExchangeRate{},
+		&models.RecurringRule{},
+		&models.Budget{},
 	); err != nil {
 		slog.Error("failed to migrate database", "error", err)
 		return

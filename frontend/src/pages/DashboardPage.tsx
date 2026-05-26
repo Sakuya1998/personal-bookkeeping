@@ -4,7 +4,7 @@ import {
   DatePicker, message, Space, Skeleton,
 } from 'antd';
 import {
-  ArrowUpOutlined, ArrowDownOutlined, WalletOutlined, DownloadOutlined,
+  ArrowUpOutlined, ArrowDownOutlined, WalletOutlined, DownloadOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
@@ -26,6 +26,12 @@ const DashboardPage: React.FC = () => {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv');
   const [exportDateRange, setExportDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
+
+  // Report modal state
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportMonth, setReportMonth] = useState<dayjs.Dayjs>(dayjs());
+  const [reportPeriod, setReportPeriod] = useState<'monthly' | 'quarterly'>('monthly');
+  const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
     if (!currentLedger) return;
@@ -99,6 +105,32 @@ const DashboardPage: React.FC = () => {
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || '导出失败');
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    if (!currentLedger) return;
+    setReportLoading(true);
+    try {
+      const date = reportMonth.format('YYYY-MM');
+      const res = await client.get(`/ledgers/${currentLedger.id}/report`, {
+        params: { period: reportPeriod, date },
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentLedger.name}_${date}_report.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      message.success('报表生成成功');
+      setReportOpen(false);
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '报表生成失败');
+    } finally {
+      setReportLoading(false);
     }
   };
 
@@ -191,9 +223,14 @@ const DashboardPage: React.FC = () => {
             <Col span={8}>
               <Card
                 extra={
-                  <Button size="small" icon={<DownloadOutlined />} onClick={() => setExportOpen(true)}>
-                    导出
-                  </Button>
+                  <Space size="small">
+                    <Button size="small" type="primary" icon={<FileTextOutlined />} onClick={() => setReportOpen(true)}>
+                      报表
+                    </Button>
+                    <Button size="small" icon={<DownloadOutlined />} onClick={() => setExportOpen(true)}>
+                      导出
+                    </Button>
+                  </Space>
                 }
               >
                 <Statistic
@@ -257,6 +294,41 @@ const DashboardPage: React.FC = () => {
               style={{ width: '100%' }}
               value={exportDateRange}
               onChange={(dates) => setExportDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)}
+            />
+          </div>
+        </Space>
+      </Modal>
+
+      {/* Report modal */}
+      <Modal
+        title="生成财务报表"
+        open={reportOpen}
+        onOk={handleGenerateReport}
+        onCancel={() => setReportOpen(false)}
+        confirmLoading={reportLoading}
+        okText="生成 PDF"
+        cancelText="取消"
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <div>
+            <div style={{ marginBottom: 8 }}>周期类型</div>
+            <Select
+              value={reportPeriod}
+              onChange={(v) => setReportPeriod(v)}
+              style={{ width: '100%' }}
+              options={[
+                { label: '月度报表', value: 'monthly' },
+                { label: '季度报表', value: 'quarterly' },
+              ]}
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 8 }}>{reportPeriod === 'monthly' ? '选择月份' : '选择季度起始月'}</div>
+            <DatePicker
+              picker={reportPeriod === 'monthly' ? 'month' : 'month'}
+              value={reportMonth}
+              onChange={(d) => d && setReportMonth(d)}
+              style={{ width: '100%' }}
             />
           </div>
         </Space>
