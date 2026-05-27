@@ -128,7 +128,7 @@ async function createTransaction(
   });
   const body = await res.json();
   expectOK(res.status(), body);
-  return { id: body.data.id };
+  return { id: body.data.transaction.id };
 }
 
 export const testHelpers = {
