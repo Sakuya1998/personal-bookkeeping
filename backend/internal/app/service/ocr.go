@@ -23,15 +23,16 @@ type OCRResult struct {
 	RawText   string  `json:"raw_text"`
 }
 
-// PaddleOCR 的响应结构
-type paddleResponse struct {
-	Result []paddleResultItem `json:"result"`
-	Msg    string             `json:"msg"`
+type ocrRegion struct {
+	Text       string    `json:"text"`
+	Confidence float64   `json:"confidence"`
+	BBox       [][2]float64 `json:"bbox,omitempty"`
 }
 
-type paddleResultItem struct {
-	Text string `json:"text"`
-	Conf float64 `json:"confidence"`
+// ocrServiceResponse 对应 gunthercox/ocr-service 的响应格式
+type ocrServiceResponse struct {
+	Text    string      `json:"text"`
+	Regions []ocrRegion `json:"regions"`
 }
 
 // RecognizeReceipt 识别小票图片内容
@@ -39,16 +40,19 @@ func RecognizeReceipt(endpoint string, file io.Reader, filename string) (*OCRRes
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
-	part, err := writer.CreateFormFile("file", filename)
+	part, err := writer.CreateFormFile("image", filename)
 	if err != nil {
 		return nil, fmt.Errorf("create form file: %w", err)
 	}
 	if _, err := io.Copy(part, file); err != nil {
 		return nil, fmt.Errorf("copy file: %w", err)
 	}
+	// Specify PaddleOCR engine with Chinese language
+	writer.WriteField("engine", "paddleocr")
+	writer.WriteField("lang", "ch")
 	writer.Close()
 
-	resp, err := http.Post(endpoint+"/api/v1/ocr", writer.FormDataContentType(), &buf)
+	resp, err := http.Post(endpoint+"/", writer.FormDataContentType(), &buf)
 	if err != nil {
 		return nil, fmt.Errorf("http post: %w", err)
 	}
@@ -60,20 +64,23 @@ func RecognizeReceipt(endpoint string, file io.Reader, filename string) (*OCRRes
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("paddleocr http %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("ocr service http %d: %s", resp.StatusCode, string(body))
 	}
 
-	var pr paddleResponse
-	if err := json.Unmarshal(body, &pr); err != nil {
+	var sr ocrServiceResponse
+	if err := json.Unmarshal(body, &sr); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
-	// Extract all text
-	lines := make([]string, 0, len(pr.Result))
-	for _, item := range pr.Result {
-		lines = append(lines, strings.TrimSpace(item.Text))
+	// Build lines from regions
+	lines := make([]string, 0, len(sr.Regions))
+	for _, r := range sr.Regions {
+		lines = append(lines, strings.TrimSpace(r.Text))
 	}
-	rawText := strings.Join(lines, "\n")
+	rawText := sr.Text
+	if rawText == "" {
+		rawText = strings.Join(lines, "\n")
+	}
 
 	result := &OCRResult{
 		Text:    rawText,

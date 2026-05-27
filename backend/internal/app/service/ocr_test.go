@@ -242,20 +242,20 @@ func TestExtractMerchant(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestRecognizeReceipt_Success(t *testing.T) {
-	// Mock PaddleOCR server
+	// Mock ocr-service server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		if r.URL.Path != "/api/v1/ocr" {
-			t.Errorf("expected /api/v1/ocr, got %s", r.URL.Path)
+		if r.URL.Path != "/" {
+			t.Errorf("expected /, got %s", r.URL.Path)
 		}
 
 		// Verify multipart form file was sent
 		if err := r.ParseMultipartForm(10 << 20); err != nil {
 			t.Fatalf("parse multipart form: %v", err)
 		}
-		file, _, err := r.FormFile("file")
+		file, _, err := r.FormFile("image")
 		if err != nil {
 			t.Fatalf("form file: %v", err)
 		}
@@ -264,15 +264,21 @@ func TestRecognizeReceipt_Success(t *testing.T) {
 		if len(content) == 0 {
 			t.Error("expected file content, got empty")
 		}
+		if r.FormValue("engine") != "paddleocr" {
+			t.Errorf("expected engine=paddleocr, got %q", r.FormValue("engine"))
+		}
+		if r.FormValue("lang") != "ch" {
+			t.Errorf("expected lang=ch, got %q", r.FormValue("lang"))
+		}
 
-		// Return valid paddleOCR response
-		resp := paddleResponse{
-			Result: []paddleResultItem{
-				{Text: "星巴克咖啡", Conf: 0.95},
-				{Text: "2026-06-01", Conf: 0.98},
-				{Text: "¥35.00", Conf: 0.97},
+		// Return valid ocr-service response
+		resp := ocrServiceResponse{
+			Text: "星巴克咖啡\n2026-06-01\n¥35.00",
+			Regions: []ocrRegion{
+				{Text: "星巴克咖啡", Confidence: 0.95},
+				{Text: "2026-06-01", Confidence: 0.98},
+				{Text: "¥35.00", Confidence: 0.97},
 			},
-			Msg: "success",
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -322,9 +328,9 @@ func TestRecognizeReceipt_HTTPError(t *testing.T) {
 
 func TestRecognizeReceipt_EmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := paddleResponse{
-			Result: []paddleResultItem{},
-			Msg:    "success",
+		resp := ocrServiceResponse{
+			Text:    "",
+			Regions: []ocrRegion{},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -380,13 +386,13 @@ func TestRecognizeReceipt_InvalidJSON(t *testing.T) {
 
 func TestRecognizeReceipt_WithKnownPatterns(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := paddleResponse{
-			Result: []paddleResultItem{
-				{Text: "沃尔玛超市", Conf: 0.96},
-				{Text: "2026/5/15", Conf: 0.94},
-				{Text: "合计: 128.50", Conf: 0.92},
+		resp := ocrServiceResponse{
+			Text: "沃尔玛超市\n2026/5/15\n合计: 128.50",
+			Regions: []ocrRegion{
+				{Text: "沃尔玛超市", Confidence: 0.96},
+				{Text: "2026/5/15", Confidence: 0.94},
+				{Text: "合计: 128.50", Confidence: 0.92},
 			},
-			Msg: "success",
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
