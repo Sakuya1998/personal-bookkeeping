@@ -21,7 +21,10 @@
 git clone https://github.com/Sakuya1998/personal-bookkeeping.git
 cd personal-bookkeeping
 
-# 启动 (PostgreSQL + Redis + 前后端)
+# 一键初始化（环境检查 + 配置 + 启动）
+make setup
+
+# 或手动启动
 docker compose up -d
 
 # 前端: http://localhost:3000

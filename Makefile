@@ -81,6 +81,9 @@ frontend-ci: frontend-install frontend-lint frontend-typecheck frontend-test fro
 # Docker
 # =============================================================================
 
+setup:
+	bash scripts/setup.sh
+
 docker-build:
 	docker build -t personal-bookkeeping-backend:ci ./backend
 	docker build -t personal-bookkeeping-frontend:ci ./frontend
