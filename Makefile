@@ -102,7 +102,7 @@ E2E_API_URL ?= http://localhost:8000
 E2E_FRONTEND_URL ?= http://localhost:3000
 
 e2e-install:
-	cd e2e && npm ci && npx playwright install chromium
+	cd e2e && npm install && npx playwright install chromium 2>&1 | tail -5
 
 e2e-test:
 	cd e2e && API_URL=$(E2E_API_URL) FRONTEND_URL=$(E2E_FRONTEND_URL) npx playwright test
