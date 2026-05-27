@@ -116,6 +116,18 @@ e2e-test-browser:
 e2e-report:
 	cd e2e && npx playwright show-report
 
+e2e-docker-build:
+	docker compose build e2e
+
+e2e-docker-api:
+	docker compose run --rm e2e
+
+e2e-docker-browser:
+	docker compose run --rm e2e npx playwright test --project=browser
+
+e2e-docker-all:
+	docker compose run --rm e2e npx playwright test
+
 # =============================================================================
 # 开发
 # =============================================================================

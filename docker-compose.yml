@@ -77,5 +77,23 @@ services:
     ports:
       - "3000:80"
 
+  e2e:
+    profiles:
+      - e2e
+    build: ./e2e
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    environment:
+      API_URL: http://backend:8000
+      FRONTEND_URL: http://frontend:3000
+      TEST_USERNAME: e2e_docker
+      TEST_PASSWORD: test123456
+      TEST_EMAIL: e2e_docker@example.com
+    # 默认跑 API 测试；可用 docker compose run e2e ... 覆盖
+    command: ["npx", "playwright", "test", "--project=api"]
+
 volumes:
   pgdata:
