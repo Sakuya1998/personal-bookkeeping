@@ -30,6 +30,7 @@ services:
       retries: 5
 
   backend:
+    image: ghcr.io/sakuya1998/personal-bookkeeping/backend:main
     build: ./backend
     restart: unless-stopped
     depends_on:
@@ -68,6 +69,7 @@ services:
       start_period: 120s
 
   frontend:
+    image: ghcr.io/sakuya1998/personal-bookkeeping/frontend:main
     build: ./frontend
     restart: unless-stopped
     depends_on:
