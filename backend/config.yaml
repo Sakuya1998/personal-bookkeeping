@@ -65,7 +65,7 @@ scheduler:
 
 exchange_rate:
   provider: "exchangerate-api"  # exchangerate-api | frankfurter
-  api_key: ""                   # exchangerate-api 需要 API key
+  api_key: "2173fbe10b18eba2b22d614d"                   # exchangerate-api 需要 API key
   base: "CNY"                   # 基准货币（常用账本位币）
 
 ocr:
