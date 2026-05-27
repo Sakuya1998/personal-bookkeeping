@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: bookkeeper
       POSTGRES_PASSWORD: bookkeeper_dev
     ports:
-      - "5432:5432"
+      - "5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -59,7 +59,7 @@ services:
     image: zilliz/paddleocr:2.7-cpu
     restart: unless-stopped
     ports:
-      - "9000:9000"
+      - "9000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9000/health"]
       interval: 10s
