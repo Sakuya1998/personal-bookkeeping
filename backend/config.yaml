@@ -38,7 +38,7 @@ cache:
     db: 0
 
 queue:
-  enabled: false
+  enabled: true
   type: "redis"                 # redis | kafka
   workers: 5
   max_retries: 3

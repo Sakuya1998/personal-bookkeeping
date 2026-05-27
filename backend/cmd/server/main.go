@@ -11,6 +11,7 @@ import (
 
 	"personal-bookkeeping/internal/app/repository"
 	"personal-bookkeeping/internal/app/router"
+	services "personal-bookkeeping/internal/app/service"
 	"personal-bookkeeping/internal/app/task"
 	"personal-bookkeeping/internal/infra/cache"
 	"personal-bookkeeping/internal/infra/config"
@@ -115,6 +116,16 @@ func main() {
 	database.Init(cfg)
 	if database.GetDB() == nil {
 		os.Exit(1)
+	}
+
+	// Immediate exchange rate fetch on startup
+	if cfg.ExchangeRate.APIKey != "" {
+		go func() {
+			slog.Info("exchange rates: initial fetch on startup")
+			if err := services.UpdateExchangeRates(&cfg.ExchangeRate); err != nil {
+				slog.Warn("exchange rates: initial fetch failed (will retry via scheduler)", "error", err)
+			}
+		}()
 	}
 
 	// — Gin —
