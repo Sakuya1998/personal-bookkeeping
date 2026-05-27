@@ -1,6 +1,7 @@
 .PHONY: all backend-test backend-lint frontend-test frontend-lint \
         test lint build coverage coverage-check vet vulncheck docker-build \
-        tidy ci e2e-install e2e-test e2e-test-api e2e-test-browser
+        tidy ci e2e-install e2e-test e2e-test-api e2e-test-browser \
+        e2e-docker-build e2e-docker-api e2e-docker-browser e2e-docker-all
 
 # =============================================================================
 # 后端
@@ -81,6 +82,8 @@ frontend-ci: frontend-install frontend-lint frontend-typecheck frontend-test fro
 # Docker
 # =============================================================================
 
+DC := docker-compose
+
 setup:
 	bash scripts/setup.sh
 
@@ -89,10 +92,10 @@ docker-build:
 	docker build -t personal-bookkeeping-frontend:ci ./frontend
 
 docker-up:
-	docker compose up -d
+	$(DC) up -d
 
 docker-down:
-	docker compose down
+	$(DC) down
 
 # =============================================================================
 # E2E
@@ -117,16 +120,16 @@ e2e-report:
 	cd e2e && npx playwright show-report
 
 e2e-docker-build:
-	docker compose build e2e
+	$(DC) --profile e2e build e2e
 
 e2e-docker-api:
-	docker compose run --rm e2e
+	$(DC) --profile e2e run --rm e2e
 
 e2e-docker-browser:
-	docker compose run --rm e2e npx playwright test --project=browser
+	$(DC) --profile e2e run --rm e2e npx playwright test --project=browser
 
 e2e-docker-all:
-	docker compose run --rm e2e npx playwright test
+	$(DC) --profile e2e run --rm e2e npx playwright test
 
 # =============================================================================
 # 开发
