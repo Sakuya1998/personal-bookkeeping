@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 
 // Mock window.matchMedia for antd responsive components (Grid, etc.)
 Object.defineProperty(window, 'matchMedia', {
