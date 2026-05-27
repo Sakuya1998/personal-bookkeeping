@@ -1,0 +1,15 @@
+{
+  "name": "personal-bookkeeping-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:api": "playwright test tests/api.spec.ts",
+    "test:browser": "playwright test tests/browser.spec.ts",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

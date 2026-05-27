@@ -1,6 +1,6 @@
 .PHONY: all backend-test backend-lint frontend-test frontend-lint \
         test lint build coverage coverage-check vet vulncheck docker-build \
-        tidy ci
+        tidy ci e2e-install e2e-test e2e-test-api e2e-test-browser
 
 # =============================================================================
 # 后端
@@ -93,6 +93,28 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+# =============================================================================
+# E2E
+# =============================================================================
+
+E2E_API_URL ?= http://localhost:8000
+E2E_FRONTEND_URL ?= http://localhost:3000
+
+e2e-install:
+	cd e2e && npm ci && npx playwright install chromium
+
+e2e-test:
+	cd e2e && API_URL=$(E2E_API_URL) FRONTEND_URL=$(E2E_FRONTEND_URL) npx playwright test
+
+e2e-test-api:
+	cd e2e && API_URL=$(E2E_API_URL) npx playwright test --project=api
+
+e2e-test-browser:
+	cd e2e && API_URL=$(E2E_API_URL) FRONTEND_URL=$(E2E_FRONTEND_URL) npx playwright test --project=browser
+
+e2e-report:
+	cd e2e && npx playwright show-report
 
 # =============================================================================
 # 开发
