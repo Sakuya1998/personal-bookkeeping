@@ -192,9 +192,9 @@ test.describe('Transactions', () => {
     expectOK(res.status(), await res.json());
   });
 
-  test('GET /api/v1/ledgers/:id/report generates report', async () => {
+  test('GET /api/v1/ledgers/:id/report/preview returns JSON', async () => {
     const res = await ctx.api.get(
-      `/api/v1/ledgers/${ctx.ledgerId}/report?start_date=2024-01-01&end_date=2030-12-31`,
+      `/api/v1/ledgers/${ctx.ledgerId}/report/preview?period=monthly&date=2024-01`,
     );
     const body = await res.json();
     expectOK(res.status(), body);
