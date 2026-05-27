@@ -14,6 +14,9 @@ env:
   GOPROXY: https://goproxy.cn,direct
   GOCACHE: /tmp/gocache
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Backend
@@ -90,6 +93,9 @@ jobs:
     name: Docker Build & Push
     runs-on: ubuntu-latest
     needs: [backend, frontend]
+    permissions:
+      packages: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
