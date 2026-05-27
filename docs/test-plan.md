@@ -53,7 +53,7 @@
 | Middleware | JWT/Token 黑名单/Header 检查 (217 行) | ✅ 已闭环 |
 | 前端 | Zustand + Axios + 货币工具 + BudgetPage + RecurringPage (5 文件, 47 测试) | ✅ S3 页面组件测试已补齐 |
 | 配置加载 | 无测试 | ⚠️ 低风险, 配置变更频率低 |
-| CI | 基本 lint + build | ⚠️ 缺覆盖率报告门禁 |
+| CI | 基本 lint + build + 覆盖率门禁 + govulncheck | ✅ 已增强 |
 
 ---
 
@@ -228,11 +228,13 @@ if testing.Short() {
 - [x] CSV/JSON 导入导出
 - [x] 前台 store + utils 测试
 
-### Phase 5 — CI 增强（部分完成）
+### Phase 5 — CI 增强（已完成）
 - [x] Go 测试 CI job (go test -race)
 - [x] 前端测试 CI job (vitest)
-- [ ] 覆盖率报告门禁
-- [ ] E2E 测试 (Docker Compose)
+- [x] 覆盖率报告门禁 (≥ 30%)
+- [x] Docker layer caching (Buildx + actions/cache)
+- [x] 前端 tsc 类型检查
+- [x] Makefile 统一入口
 
 ### Phase 6 — v3.0 测试补全（已闭环）
 - [x] 填充 7 个空 stub (见 §6)
