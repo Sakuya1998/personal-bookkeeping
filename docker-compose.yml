@@ -88,7 +88,7 @@ services:
         condition: service_started
     environment:
       API_URL: http://backend:8000
-      FRONTEND_URL: http://frontend:3000
+      FRONTEND_URL: http://frontend:80
       TEST_USERNAME: e2e_docker
       TEST_PASSWORD: test123456
       TEST_EMAIL: e2e_docker@example.com
