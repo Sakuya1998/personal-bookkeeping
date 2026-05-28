@@ -52,13 +52,9 @@ test('login page shows form', async () => {
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
 
-  const usernameInput = page.locator(
-    'input[id*="username"], input[name*="username"], input[placeholder*="用户"], input[placeholder*="username"]',
-  ).first();
-  const passwordInput = page.locator('input[type="password"]').first();
-  const loginButton = page.locator(
-    'button[type="submit"], button:has-text("登录"), button:has-text("Login"), button:has-text("Sign in")',
-  ).first();
+  const usernameInput = page.locator('#username');
+  const passwordInput = page.locator('#password');
+  const loginButton = page.locator('button[type="submit"]').first();
 
   await expect(usernameInput).toBeVisible({ timeout: 5000 });
   await expect(passwordInput).toBeVisible({ timeout: 5000 });
@@ -70,18 +66,16 @@ test('login with valid credentials redirects to dashboard', async () => {
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
 
-  const usernameInput = page.locator(
-    'input[id*="username"], input[name*="username"], input[placeholder*="用户"], input[placeholder*="username"]',
-  ).first();
-  const passwordInput = page.locator('input[type="password"]').first();
-  const loginButton = page.locator(
-    'button[type="submit"], button:has-text("登录"), button:has-text("Login"), button:has-text("Sign in")',
-  ).first();
+  // Ant Design Form.Item name="username" → input#username
+  const usernameInput = page.locator('#username');
+  const passwordInput = page.locator('#password');
+  const loginButton = page.locator('button[type="submit"]').first();
 
   await usernameInput.fill(TEST_USER.username);
   await passwordInput.fill(TEST_USER.password);
   await loginButton.click();
 
+  // 等待登录成功跳转（navigate('/')）
   await page.waitForURL(/\/(dashboard|home|\/)/, { timeout: 15000 });
   expect(page.url()).not.toContain('/login');
 });
