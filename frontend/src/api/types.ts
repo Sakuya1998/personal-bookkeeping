@@ -32,6 +32,8 @@ export interface Category {
   sort_order: number;
   is_active: boolean;
   children?: Category[];
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Transaction {

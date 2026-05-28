@@ -1,22 +1,23 @@
-package handlers
+package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
-	"personal-bookkeeping/internal/app/model"
-	"personal-bookkeeping/internal/app/repository"
-	"personal-bookkeeping/internal/infra/queue"
+	"personal-bookkeeping/internal/app/models"
+	"personal-bookkeeping/internal/app/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
-type LedgerHandler struct{}
+type LedgerHandler struct {
+	svc *service.LedgerService
+}
 
-func NewLedgerHandler() *LedgerHandler {
-	return &LedgerHandler{}
+func NewLedgerHandler(svc *service.LedgerService) *LedgerHandler {
+	return &LedgerHandler{svc: svc}
 }
 
 type CreateLedgerInput struct {
@@ -46,8 +47,16 @@ type UpdateLedgerInput struct {
 // @Router       /ledgers [get]
 func (h *LedgerHandler) List(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	var ledgers []models.Ledger
-	database.GetDB().Where("user_id = ?", user.ID).Order("sort_order asc, created_at desc").Find(&ledgers)
+
+	ledgers, err := h.svc.ListLedgers(user.ID)
+	if err != nil {
+		InternalError(c, "failed to list ledgers")
+		return
+	}
+	if ledgers == nil {
+		ledgers = []models.Ledger{}
+	}
+
 	RespondJSON(c, http.StatusOK, ledgers)
 }
 
@@ -71,17 +80,8 @@ func (h *LedgerHandler) Create(c *gin.Context) {
 		input.BaseCurrency = "CNY"
 	}
 
-	ledger := models.Ledger{
-		ID:           uuid.New(),
-		UserID:       user.ID,
-		Name:         input.Name,
-		Description:  input.Description,
-		BaseCurrency: input.BaseCurrency,
-		Icon:         input.Icon,
-		Color:        input.Color,
-	}
-
-	if err := database.GetDB().Create(&ledger).Error; err != nil {
+	ledger, err := h.svc.CreateLedger(user.ID, input.Name, input.BaseCurrency, input.Description, input.Icon, input.Color)
+	if err != nil {
 		InternalError(c, "failed to create ledger")
 		return
 	}
@@ -100,11 +100,17 @@ func (h *LedgerHandler) Create(c *gin.Context) {
 // @Router       /ledgers/{id} [get]
 func (h *LedgerHandler) Get(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("ledger_id")
+	idStr := c.Param("ledger_id")
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).First(&ledger).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
+		return
+	}
+
+	ledger, err := h.svc.GetLedger(id, user.ID)
+	if err != nil {
+		if errors.Is(err, service.ErrLedgerNotFound) {
 			NotFound(c, "ledger not found")
 			return
 		}
@@ -127,15 +133,11 @@ func (h *LedgerHandler) Get(c *gin.Context) {
 // @Router       /ledgers/{id} [put]
 func (h *LedgerHandler) Update(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("ledger_id")
+	idStr := c.Param("ledger_id")
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).First(&ledger).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			NotFound(c, "ledger not found")
-			return
-		}
-		InternalError(c, "database error")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
 		return
 	}
 
@@ -168,8 +170,15 @@ func (h *LedgerHandler) Update(c *gin.Context) {
 		updates["sort_order"] = *input.SortOrder
 	}
 
-	database.GetDB().Model(&ledger).Updates(updates)
-	database.GetDB().First(&ledger, ledger.ID)
+	ledger, err := h.svc.UpdateLedger(id, user.ID, updates)
+	if err != nil {
+		if errors.Is(err, service.ErrLedgerNotFound) {
+			NotFound(c, "ledger not found")
+			return
+		}
+		InternalError(c, "failed to update ledger")
+		return
+	}
 
 	RespondJSON(c, http.StatusOK, ledger)
 }
@@ -184,16 +193,23 @@ func (h *LedgerHandler) Update(c *gin.Context) {
 // @Router       /ledgers/{id} [delete]
 func (h *LedgerHandler) Delete(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("ledger_id")
+	idStr := c.Param("ledger_id")
 
-	result := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).Delete(&models.Ledger{})
-	if result.RowsAffected == 0 {
-		NotFound(c, "ledger not found")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
 		return
 	}
 
-	database.GetDB().Where("ledger_id = ?", id).Delete(&models.Transaction{})
-	database.GetDB().Where("ledger_id = ?", id).Delete(&models.Category{})
+	err = h.svc.DeleteLedger(id, user.ID)
+	if err != nil {
+		if errors.Is(err, service.ErrLedgerNotFound) {
+			NotFound(c, "ledger not found")
+			return
+		}
+		RespondError(c, http.StatusInternalServerError, "failed to delete ledger")
+		return
+	}
 
 	RespondJSON(c, http.StatusOK, nil)
 }
@@ -208,58 +224,43 @@ func (h *LedgerHandler) Delete(c *gin.Context) {
 // @Router       /ledgers/{id}/summary [get]
 func (h *LedgerHandler) Summary(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("ledger_id")
+	idStr := c.Param("ledger_id")
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
+	ledgerID, err := uuid.Parse(idStr)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
 		return
 	}
 
-	var totalIncome, totalExpense float64
-	database.GetDB().Model(&models.Transaction{}).
-		Where("ledger_id = ? AND type = ?", id, "income").
-		Select("COALESCE(SUM(base_amount), 0)").Scan(&totalIncome)
-
-		database.GetDB().Model(&models.Transaction{}).
-		Where("ledger_id = ? AND type = ?", id, "expense").
-		Select("COALESCE(SUM(base_amount), 0)").Scan(&totalExpense)
-
-	var expenseByCategory []CategorySummary
-	database.GetDB().Raw(`
-		SELECT t.category_id, c.name as category_name, COALESCE(c.icon,'') as category_icon,
-		       COALESCE(SUM(t.base_amount),0) as total, COUNT(*) as count
-		FROM transactions t
-		JOIN categories c ON c.id = t.category_id
-		WHERE t.ledger_id = ? AND t.type = 'expense'
-		GROUP BY t.category_id, c.name, c.icon
-		ORDER BY total DESC
-	`, id).Scan(&expenseByCategory)
+	summary, err := h.svc.Summary(ledgerID, user.ID)
+	if err != nil {
+		if errors.Is(err, service.ErrLedgerNotFound) {
+			NotFound(c, "ledger not found")
+			return
+		}
+		InternalError(c, "failed to get summary")
+		return
+	}
 
 	RespondJSON(c, http.StatusOK, ledgerSummary{
-		TotalIncome:       totalIncome,
-		TotalExpense:      totalExpense,
-		Balance:           totalIncome - totalExpense,
-		BaseCurrency:      ledger.BaseCurrency,
-		ExpenseByCategory: expenseByCategory,
+		TotalIncome:       summary.TotalIncome,
+		TotalExpense:      summary.TotalExpense,
+		Balance:           summary.Balance,
+		BaseCurrency:      summary.BaseCurrency,
+		ExpenseByCategory: summary.ExpenseByCategory,
 	})
 }
 
 type ledgerSummary struct {
-	TotalIncome       float64           `json:"total_income"`
-	TotalExpense      float64           `json:"total_expense"`
-	Balance           float64           `json:"balance"`
-	BaseCurrency      string            `json:"base_currency" example:"CNY"`
-	ExpenseByCategory []CategorySummary `json:"expense_by_category"`
+	TotalIncome       float64                         `json:"total_income"`
+	TotalExpense      float64                         `json:"total_expense"`
+	Balance           float64                         `json:"balance"`
+	BaseCurrency      string                          `json:"base_currency" example:"CNY"`
+	ExpenseByCategory []service.LedgerCategorySummary `json:"expense_by_category"`
 }
 
-type CategorySummary struct {
-	CategoryID   uuid.UUID `json:"category_id"`
-	CategoryName string    `json:"category_name"`
-	CategoryIcon string    `json:"category_icon"`
-	Total        float64   `json:"total"`
-	Count        int64     `json:"count"`
-}
+// LedgerCategorySummary 分类汇总单项（handler 响应类型）。
+type LedgerCategorySummary = service.LedgerCategorySummary
 
 // Export  godoc
 // @Summary      导出交易数据（同步 CSV/JSON，超 5000 条转异步）
@@ -276,9 +277,19 @@ func (h *LedgerHandler) Export(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	ledgerID := c.Param("ledger_id")
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", ledgerID, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
+	lid, err := uuid.Parse(ledgerID)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
+		return
+	}
+
+	// Verify ledger ownership via service
+	if _, err := h.svc.GetLedger(lid, user.ID); err != nil {
+		if errors.Is(err, service.ErrLedgerNotFound) {
+			NotFound(c, "ledger not found")
+			return
+		}
+		InternalError(c, "database error")
 		return
 	}
 
@@ -290,39 +301,19 @@ func (h *LedgerHandler) Export(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
 
-	// count first
-	var total int64
-	countQuery := database.GetDB().Model(&models.Transaction{}).
-		Where("ledger_id = ? AND user_id = ?", ledgerID, user.ID)
-	if startDate != "" {
-		countQuery = countQuery.Where("transaction_date >= ?", startDate)
+	// Get count and data via service
+	transactions, total, err := h.svc.ExportTransactions(lid, user.ID, startDate, endDate)
+	if err != nil {
+		InternalError(c, "failed to export transactions")
+		return
 	}
-	if endDate != "" {
-		countQuery = countQuery.Where("transaction_date <= ?", endDate)
-	}
-	countQuery.Count(&total)
 
 	const syncLimit = 5000
 	if total >= syncLimit {
-		// redirect to async task
-		q := database.GetQueue()
-		if q == nil {
-			InternalError(c, "task queue not available")
-			return
-		}
-		taskID := uuid.New().String()
-		if err := q.Submit(c.Request.Context(), queue.Task{
-			ID:   taskID,
-			Type: "export_report",
-			Payload: map[string]interface{}{
-				"user_id":    user.ID.String(),
-				"ledger_id":  ledgerID,
-				"start_date": startDate,
-				"end_date":   endDate,
-				"format":     format,
-			},
-		}); err != nil {
-			InternalError(c, "failed to submit export task")
+		// Redirect to async task
+		taskID, err := h.svc.SubmitExportTask(user.ID, lid, startDate, endDate, format)
+		if err != nil {
+			InternalError(c, err.Error())
 			return
 		}
 		RespondJSON(c, http.StatusOK, map[string]interface{}{
@@ -333,17 +324,7 @@ func (h *LedgerHandler) Export(c *gin.Context) {
 		return
 	}
 
-	// synchronous export (< 5000 records)
-	query := database.GetDB().Where("ledger_id = ? AND user_id = ?", ledgerID, user.ID)
-	if startDate != "" {
-		query = query.Where("transaction_date >= ?", startDate)
-	}
-	if endDate != "" {
-		query = query.Where("transaction_date <= ?", endDate)
-	}
-	var transactions []models.Transaction
-	query.Order("transaction_date desc").Find(&transactions)
-
+	// Synchronous export (< 5000 records)
 	switch format {
 	case "csv":
 		c.Header("Content-Type", "text/csv; charset=utf-8")
@@ -366,36 +347,20 @@ func (h *LedgerHandler) Tags(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	ledgerID := c.Param("ledger_id")
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", ledgerID, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
+	lid, err := uuid.Parse(ledgerID)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
 		return
 	}
 
-	var rawTags []string
-	database.GetDB().Model(&models.Transaction{}).
-		Where("ledger_id = ? AND user_id = ? AND tags IS NOT NULL AND tags <> ''", ledgerID, user.ID).
-		Distinct("tags").
-		Pluck("tags", &rawTags)
-
-	// split and deduplicate
-	seen := make(map[string]struct{})
-	var tags []string
-	for _, raw := range rawTags {
-		for _, t := range splitTags(raw) {
-			t = trim(t)
-			if t == "" {
-				continue
-			}
-			if _, ok := seen[t]; !ok {
-				seen[t] = struct{}{}
-				tags = append(tags, t)
-			}
+	tags, err := h.svc.Tags(lid, user.ID)
+	if err != nil {
+		if errors.Is(err, service.ErrLedgerNotFound) {
+			NotFound(c, "ledger not found")
+			return
 		}
-	}
-
-	if tags == nil {
-		tags = []string{}
+		InternalError(c, "database error")
+		return
 	}
 
 	RespondJSON(c, http.StatusOK, tags)

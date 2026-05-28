@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"personal-bookkeeping/internal/app/model"
-	"personal-bookkeeping/internal/app/repository"
+	"personal-bookkeeping/internal/app/models"
+	"personal-bookkeeping/internal/infra/database"
 	"personal-bookkeeping/internal/app/service"
 	"personal-bookkeeping/internal/infra/config"
 	"personal-bookkeeping/internal/infra/queue"
@@ -358,7 +358,7 @@ func handleUpdateExchangeRates(ctx context.Context, task queue.Task) error {
 		return fmt.Errorf("update_exchange_rates: config not available")
 	}
 
-	if err := services.UpdateExchangeRates(&cfg.ExchangeRate); err != nil {
+	if err := service.UpdateExchangeRates(database.GetDB(), &cfg.ExchangeRate); err != nil {
 		return fmt.Errorf("update_exchange_rates: %w", err)
 	}
 	return nil

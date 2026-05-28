@@ -1,20 +1,21 @@
-package handlers
+package handler
 
 import (
 	"net/http"
 
-	"personal-bookkeeping/internal/app/model"
-	"personal-bookkeeping/internal/app/repository"
-	services "personal-bookkeeping/internal/app/service"
+	"personal-bookkeeping/internal/app/models"
+	service "personal-bookkeeping/internal/app/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type ReportHandler struct{}
+type ReportHandler struct {
+	svc *service.ReportService
+}
 
-func NewReportHandler() *ReportHandler {
-	return &ReportHandler{}
+func NewReportHandler(svc *service.ReportService) *ReportHandler {
+	return &ReportHandler{svc: svc}
 }
 
 // GenerateReport  godoc
@@ -51,25 +52,19 @@ func (h *ReportHandler) GenerateReport(c *gin.Context) {
 		return
 	}
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", lid, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
-		return
-	}
-
-	data, err := services.BuildReportData(database.GetDB(), lid, user.ID, services.ReportPeriod(period), date)
+	data, err := h.svc.BuildReportData(lid, user.ID, service.ReportPeriod(period), date)
 	if err != nil {
 		InternalError(c, "failed to build report data: "+err.Error())
 		return
 	}
 
-	pdfBytes, err := services.GenerateReportPDF(data)
+	pdfBytes, err := service.GenerateReportPDF(data)
 	if err != nil {
 		InternalError(c, "failed to generate PDF: "+err.Error())
 		return
 	}
 
-	filename := ledger.Name + "_" + date + "_report.pdf"
+	filename := data.LedgerName + "_" + date + "_report.pdf"
 	c.Header("Content-Disposition", "attachment; filename=\""+filename+"\"")
 	c.Data(http.StatusOK, "application/pdf", pdfBytes)
 }
@@ -82,7 +77,7 @@ func (h *ReportHandler) GenerateReport(c *gin.Context) {
 // @Param        ledger_id path string true "账本 ID"
 // @Param        period    query string true "周期: monthly | quarterly"
 // @Param        date      query string true "日期: YYYY-MM"
-// @Success      200 {object} Response{data=services.ReportData}
+// @Success      200 {object} Response{data=service.ReportData}
 // @Router       /ledgers/{ledger_id}/report/preview [get]
 func (h *ReportHandler) ReportPreview(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
@@ -104,13 +99,7 @@ func (h *ReportHandler) ReportPreview(c *gin.Context) {
 		return
 	}
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", lid, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
-		return
-	}
-
-	data, err := services.BuildReportData(database.GetDB(), lid, user.ID, services.ReportPeriod(period), date)
+	data, err := h.svc.BuildReportData(lid, user.ID, service.ReportPeriod(period), date)
 	if err != nil {
 		InternalError(c, "failed to build report data: "+err.Error())
 		return

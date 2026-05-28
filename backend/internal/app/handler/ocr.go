@@ -1,20 +1,21 @@
-package handlers
+package handler
 
 import (
 	"log/slog"
 	"net/http"
 
-	services "personal-bookkeeping/internal/app/service"
+	service "personal-bookkeeping/internal/app/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 type OCRHandler struct {
 	endpoint string
+	svc      *service.OCRService
 }
 
-func NewOCRHandler(endpoint string) *OCRHandler {
-	return &OCRHandler{endpoint: endpoint}
+func NewOCRHandler(endpoint string, svc *service.OCRService) *OCRHandler {
+	return &OCRHandler{endpoint: endpoint, svc: svc}
 }
 
 // RecognizeReceipt  godoc
@@ -24,7 +25,7 @@ func NewOCRHandler(endpoint string) *OCRHandler {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        image formData file true "小票图片 (jpg/png)"
-// @Success      200 {object} Response{data=services.OCRResult}
+// @Success      200 {object} Response{data=service.OCRResult}
 // @Router       /ocr/receipt [post]
 func (h *OCRHandler) RecognizeReceipt(c *gin.Context) {
 	file, header, err := c.Request.FormFile("image")
@@ -47,7 +48,7 @@ func (h *OCRHandler) RecognizeReceipt(c *gin.Context) {
 		return
 	}
 
-	result, err := services.RecognizeReceipt(h.endpoint, file, header.Filename)
+	result, err := service.RecognizeReceipt(h.endpoint, file, header.Filename)
 	if err != nil {
 		slog.Error("ocr failed", "error", err)
 		InternalError(c, "识别失败，请稍后重试")

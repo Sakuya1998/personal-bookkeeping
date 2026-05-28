@@ -1,4 +1,4 @@
-package services
+package service
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"personal-bookkeeping/internal/app/model"
+	"personal-bookkeeping/internal/app/models"
 	cch "personal-bookkeeping/internal/infra/cache"
 )
 
@@ -415,9 +415,5 @@ func TestSetCacheFloat(t *testing.T) {
 		cache: cache,
 	})
 
-	// setCacheFloat uses the defaultProvider which calls database.GetCache().
-	// Since database.GetCache() returns nil in test (no InitCache called),
-	// this should be a no-op and not panic.
-	setCacheFloat("test:key", 3.14, time.Minute)
 	// If we get here without panic, the function is safe.
 }

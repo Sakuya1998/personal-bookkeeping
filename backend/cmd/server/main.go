@@ -9,9 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"personal-bookkeeping/internal/app/repository"
+	"personal-bookkeeping/internal/infra/database"
+	"personal-bookkeeping/internal/app/models"
 	"personal-bookkeeping/internal/app/router"
-	services "personal-bookkeeping/internal/app/service"
+	service "personal-bookkeeping/internal/app/service"
 	"personal-bookkeeping/internal/app/task"
 	"personal-bookkeeping/internal/infra/cache"
 	"personal-bookkeeping/internal/infra/config"
@@ -88,7 +89,7 @@ func main() {
 		slog.Error("failed to init cache", "error", err)
 		os.Exit(1)
 	}
-	database.InitCache(cch)
+	cache.SetDefault(cch)
 	slog.Info("cache initialized", "type", cfg.Cache.Type)
 
 	// — Queue —
@@ -98,18 +99,24 @@ func main() {
 		slog.Error("failed to init queue", "error", err)
 		os.Exit(1)
 	}
-	database.InitQueue(q)
+	queue.SetDefault(q)
 	if q != nil {
 		task.RegisterAll(q)
 		q.Start(context.Background())
 		slog.Info("queue started", "type", cfg.Queue.Type, "workers", cfg.Queue.Workers)
 
+		// Use a cancellable context so schedulers stop on shutdown
+		schedCtx, schedCancel := context.WithCancel(context.Background())
+
 		// Start recurring transaction scheduler
 		interval := time.Duration(cfg.Scheduler.RecurringCheckMinutes) * time.Minute
-		task.StartRecurringScheduler(context.Background(), q, interval)
+		task.StartRecurringScheduler(schedCtx, q, interval)
 
 		// Start exchange rate auto-update scheduler (daily)
-		task.StartExchangeRateScheduler(context.Background(), q)
+		task.StartExchangeRateScheduler(schedCtx, q)
+
+		// Cancel schedulers on shutdown (before the 30s timeout)
+		defer schedCancel()
 	}
 
 	// Connect database
@@ -118,11 +125,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	// AutoMigrate (dev convenience) — app models passed from app layer
+	database.AutoMigrate(
+		&models.User{},
+		&models.Ledger{},
+		&models.Category{},
+		&models.Transaction{},
+		&models.ExchangeRate{},
+		&models.RecurringRule{},
+		&models.Budget{},
+	)
+
+	// Initialize exchange rate provider with DI-injected DB and cache
+	service.InitExchangeRateProvider(database.GetDB(), cch)
+
 	// Immediate exchange rate fetch on startup
 	if cfg.ExchangeRate.APIKey != "" {
 		go func() {
 			slog.Info("exchange rates: initial fetch on startup")
-			if err := services.UpdateExchangeRates(&cfg.ExchangeRate); err != nil {
+			if err := service.UpdateExchangeRates(database.GetDB(), &cfg.ExchangeRate); err != nil {
 				slog.Warn("exchange rates: initial fetch failed (will retry via scheduler)", "error", err)
 			}
 		}()
@@ -143,7 +164,7 @@ func main() {
 		}
 	})
 
-	routes.Setup(r, cfg)
+	router.Setup(r, cfg)
 
 	addr := ":" + cfg.Server.Port
 	slog.Info("server starting", "addr", addr)
@@ -171,15 +192,15 @@ func main() {
 		slog.Error("http server shutdown error", "error", err)
 	}
 
-	if err := database.Close(); err != nil {
-		slog.Error("db close error", "error", err)
-	}
-
-	// shutdown queue (wait for in-flight tasks)
+	// shutdown queue first (wait for in-flight tasks that may access DB)
 	if q != nil {
 		if err := q.Shutdown(ctx); err != nil {
 			slog.Error("queue shutdown error", "error", err)
 		}
+	}
+
+	if err := database.Close(); err != nil {
+		slog.Error("db close error", "error", err)
 	}
 
 	// shutdown cache

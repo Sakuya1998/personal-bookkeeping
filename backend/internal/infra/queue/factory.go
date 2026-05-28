@@ -13,6 +13,8 @@ func NewFromConfig(cfg *config.QueueConfig) (Queue, error) {
 		return nil, nil
 	}
 	switch cfg.Type {
+	case "inmemory":
+		return NewInMemory(cfg.Workers, cfg.MaxRetries), nil
 	case "redis":
 		return NewRedis(
 			cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB,
@@ -25,6 +27,6 @@ func NewFromConfig(cfg *config.QueueConfig) (Queue, error) {
 			cfg.Workers, cfg.MaxRetries,
 		)
 	default:
-		return nil, fmt.Errorf("unknown queue type: %q (expected redis or kafka)", cfg.Type)
+		return nil, fmt.Errorf("unknown queue type: %q (expected inmemory, redis, or kafka)", cfg.Type)
 	}
 }

@@ -52,7 +52,8 @@ const RecurringPage: React.FC = () => {
     if (!currentLedger) return;
     loadRules();
     client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`)
-      .then((res) => setCategories(res.data.data));
+      .then((res) => setCategories(res.data.data))
+      .catch(err => console.error('获取分类失败:', err));
   }, [currentLedger, loadRules]);
 
   const handleSubmit = async (values: Record<string, unknown>) => {
@@ -86,9 +87,14 @@ const RecurringPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await client.delete(`/recurring/${id}`);
-    message.success('删除成功');
-    loadRules();
+    try {
+      await client.delete(`/recurring/${id}`);
+      message.success('删除成功');
+      loadRules();
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '删除失败');
+    }
   };
 
   const openCreate = () => {

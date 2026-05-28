@@ -1,13 +1,11 @@
-package handlers
+package handler
 
 import (
-	"math"
+	"errors"
 	"net/http"
 	"strconv"
-	"time"
 
-	"personal-bookkeeping/internal/app/model"
-	"personal-bookkeeping/internal/app/repository"
+	"personal-bookkeeping/internal/app/models"
 	"personal-bookkeeping/internal/app/service"
 
 	"github.com/gin-gonic/gin"
@@ -15,10 +13,12 @@ import (
 	"gorm.io/gorm"
 )
 
-type TransactionHandler struct{}
+type TransactionHandler struct {
+	svc *service.TransactionService
+}
 
-func NewTransactionHandler() *TransactionHandler {
-	return &TransactionHandler{}
+func NewTransactionHandler(svc *service.TransactionService) *TransactionHandler {
+	return &TransactionHandler{svc: svc}
 }
 
 type CreateTransactionInput struct {
@@ -62,51 +62,49 @@ func (h *TransactionHandler) List(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	ledgerID := c.Param("ledger_id")
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", ledgerID, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
+	ledgerUUID, err := uuid.Parse(ledgerID)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
 		return
 	}
 
-	query := database.GetDB().Where("ledger_id = ? AND user_id = ?", ledgerID, user.ID)
+	// Build filters map
+	filters := make(map[string]string)
 	if t := c.Query("type"); t != "" {
-		query = query.Where("type = ?", t)
+		filters["type"] = t
 	}
 	if catID := c.Query("category_id"); catID != "" {
-		query = query.Where("category_id = ?", catID)
+		filters["category_id"] = catID
 	}
 	if start := c.Query("start_date"); start != "" {
-		query = query.Where("transaction_date >= ?", start)
+		filters["start_date"] = start
 	}
 	if end := c.Query("end_date"); end != "" {
-		query = query.Where("transaction_date <= ?", end)
+		filters["end_date"] = end
 	}
 	if keyword := c.Query("keyword"); keyword != "" {
-		query = query.Where("description ILIKE ?", "%"+keyword+"%")
+		filters["keyword"] = keyword
 	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
 
-	var total int64
-	query.Model(&models.Transaction{}).Count(&total)
+	transactions, total, totalPages, err := h.svc.ListTransactions(ledgerUUID, user.ID, page, pageSize, filters)
+	if err != nil {
+		InternalError(c, "database error")
+		return
+	}
 
-	var transactions []models.Transaction
-	query.Preload("Category").Order("transaction_date desc, created_at desc").Offset(offset).Limit(pageSize).Find(&transactions)
+	if transactions == nil {
+		transactions = []models.Transaction{}
+	}
 
 	RespondJSON(c, http.StatusOK, transactionList{
 		Items:      transactions,
 		Total:      total,
 		Page:       page,
 		PageSize:   pageSize,
-		TotalPages: int(math.Ceil(float64(total) / float64(pageSize))),
+		TotalPages: totalPages,
 	})
 }
 
@@ -127,76 +125,30 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	ledgerUUID, _ := uuid.Parse(input.LedgerID)
-	categoryUUID, _ := uuid.Parse(input.CategoryID)
-
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", ledgerUUID, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
+	ledgerUUID, err := uuid.Parse(input.LedgerID)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id format")
+		return
+	}
+	categoryUUID, err := uuid.Parse(input.CategoryID)
+	if err != nil {
+		BadRequest(c, "invalid category_id format")
 		return
 	}
 
-	if input.Currency == "" {
-		input.Currency = "CNY"
-	}
-
-	txnDate := input.TransactionDate
-	if txnDate == "" {
-		txnDate = time.Now().Format("2006-01-02")
-	}
-
-	exchangeRate := 1.0
-	baseAmount := input.Amount
-	if input.Currency != ledger.BaseCurrency {
-		rate, err := services.GetExchangeRate(input.Currency, ledger.BaseCurrency, txnDate)
-		if err == nil && rate > 0 {
-			exchangeRate = rate
-			baseAmount = input.Amount * rate
-		}
-	}
-
-	baseAmount = math.Round(baseAmount*100) / 100
-
-	var tagsStr *string
-	if len(input.Tags) > 0 {
-		s := ""
-		for i, tag := range input.Tags {
-			if i > 0 {
-				s += ","
-			}
-			s += tag
-		}
-		tagsStr = &s
-	}
-
-	txn := models.Transaction{
-		ID:              uuid.New(),
-		LedgerID:        ledgerUUID,
-		UserID:          user.ID,
-		CategoryID:      categoryUUID,
-		Type:            input.Type,
-		Amount:          input.Amount,
-		Currency:        input.Currency,
-		ExchangeRate:    exchangeRate,
-		BaseAmount:      baseAmount,
-		Description:     input.Description,
-		TransactionDate: txnDate,
-		Tags:            tagsStr,
-	}
-
-	if err := database.GetDB().Create(&txn).Error; err != nil {
+	txn, overBudget, err := h.svc.CreateTransaction(
+		ledgerUUID, user.ID, categoryUUID,
+		input.Type, input.Amount, input.Currency,
+		input.Description, input.TransactionDate, input.Tags,
+	)
+	if err != nil {
 		InternalError(c, "failed to create transaction")
 		return
 	}
 
-	database.GetDB().Preload("Category").First(&txn, txn.ID)
-
-	// Budget check
-	overBudget := CheckBudgetOverrun(database.GetDB(), user.ID, ledgerUUID, categoryUUID, txn.Type, txn.BaseAmount, txn.TransactionDate)
-
 	RespondJSON(c, http.StatusCreated, gin.H{
-		"transaction":  txn,
-		"over_budget":  overBudget,
+		"transaction": txn,
+		"over_budget": overBudget,
 	})
 }
 
@@ -212,15 +164,11 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 // @Router       /transactions/{id} [put]
 func (h *TransactionHandler) Update(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("id")
+	idStr := c.Param("id")
 
-	var txn models.Transaction
-	if err := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).First(&txn).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			NotFound(c, "transaction not found")
-			return
-		}
-		InternalError(c, "database error")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		BadRequest(c, "invalid transaction id")
 		return
 	}
 
@@ -230,79 +178,34 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 		return
 	}
 
-	updates := map[string]interface{}{}
-	if input.Amount != nil {
-		updates["amount"] = *input.Amount
-	}
-	if input.Currency != nil {
-		updates["currency"] = *input.Currency
-	}
-	if input.Type != nil {
-		updates["type"] = *input.Type
-	}
-	if input.Description != nil {
-		updates["description"] = *input.Description
-	}
-	if input.TransactionDate != nil {
-		updates["transaction_date"] = *input.TransactionDate
-	}
-	if input.IsReconciled != nil {
-		updates["is_reconciled"] = *input.IsReconciled
-	}
+	// Convert category_id string pointer to uuid pointer
+	var catPtr *uuid.UUID
 	if input.CategoryID != nil {
-		if parsed, err := uuid.Parse(*input.CategoryID); err == nil {
-			updates["category_id"] = parsed
+		parsed, err := uuid.Parse(*input.CategoryID)
+		if err != nil {
+			BadRequest(c, "invalid category_id format")
+			return
 		}
-	}
-	if input.Tags != nil {
-		s := ""
-		for i, tag := range input.Tags {
-			if i > 0 {
-				s += ","
-			}
-			s += tag
-		}
-		updates["tags"] = s
+		catPtr = &parsed
 	}
 
-	amount, hasAmount := updates["amount"].(float64)
-	currency, hasCurrency := updates["currency"].(string)
-	if hasAmount || hasCurrency {
-		if !hasAmount {
-			amount = txn.Amount
+	txn, overBudget, err := h.svc.UpdateTransaction(
+		id, user.ID, catPtr, input.Type, input.Amount,
+		input.Currency, input.Description, input.TransactionDate,
+		input.Tags, input.IsReconciled,
+	)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			NotFound(c, "transaction not found")
+			return
 		}
-		if !hasCurrency {
-			currency = txn.Currency
-		}
-
-		var ledger models.Ledger
-		if err := database.GetDB().First(&ledger, "id = ?", txn.LedgerID).Error; err == nil {
-			rate := 1.0
-			if currency != ledger.BaseCurrency {
-				txnDate := txn.TransactionDate
-				if input.TransactionDate != nil {
-					txnDate = *input.TransactionDate
-				}
-				r, err := services.GetExchangeRate(currency, ledger.BaseCurrency, txnDate)
-				if err == nil && r > 0 {
-					rate = r
-				}
-			}
-			baseAmount := math.Round(amount*rate*100) / 100
-			updates["exchange_rate"] = rate
-			updates["base_amount"] = baseAmount
-		}
+		InternalError(c, "failed to update transaction")
+		return
 	}
-
-	database.GetDB().Model(&txn).Updates(updates)
-	database.GetDB().Preload("Category").First(&txn, txn.ID)
-
-	// Budget check
-	overBudget := CheckBudgetOverrun(database.GetDB(), user.ID, txn.LedgerID, txn.CategoryID, txn.Type, txn.BaseAmount, txn.TransactionDate)
 
 	RespondJSON(c, http.StatusOK, gin.H{
-		"transaction":  txn,
-		"over_budget":  overBudget,
+		"transaction": txn,
+		"over_budget": overBudget,
 	})
 }
 
@@ -316,11 +219,21 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 // @Router       /transactions/{id} [delete]
 func (h *TransactionHandler) Delete(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	id := c.Param("id")
+	idStr := c.Param("id")
 
-	result := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).Delete(&models.Transaction{})
-	if result.RowsAffected == 0 {
-		NotFound(c, "transaction not found")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		BadRequest(c, "invalid transaction id")
+		return
+	}
+
+	err = h.svc.DeleteTransaction(id, user.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			NotFound(c, "transaction not found")
+			return
+		}
+		InternalError(c, "failed to delete transaction")
 		return
 	}
 
@@ -329,10 +242,10 @@ func (h *TransactionHandler) Delete(c *gin.Context) {
 
 type transactionList struct {
 	Items      []models.Transaction `json:"items"`
-	Total      int64               `json:"total"`
-	Page       int                 `json:"page"`
-	PageSize   int                 `json:"page_size"`
-	TotalPages int                 `json:"total_pages"`
+	Total      int64                `json:"total"`
+	Page       int                  `json:"page"`
+	PageSize   int                  `json:"page_size"`
+	TotalPages int                  `json:"total_pages"`
 }
 
 // ---------- batch operations ----------
@@ -357,7 +270,6 @@ func (h *TransactionHandler) BatchDelete(c *gin.Context) {
 		return
 	}
 
-	// verify ownership and collect valid UUIDs
 	uuids := make([]uuid.UUID, 0, len(input.IDs))
 	for _, id := range input.IDs {
 		parsed, err := uuid.Parse(id)
@@ -368,16 +280,18 @@ func (h *TransactionHandler) BatchDelete(c *gin.Context) {
 		uuids = append(uuids, parsed)
 	}
 
-	var count int64
-	database.GetDB().Model(&models.Transaction{}).Where("id IN ? AND user_id = ?", uuids, user.ID).Count(&count)
-	if count != int64(len(uuids)) {
-		BadRequest(c, "some transactions not found or not owned by current user")
+	deleted, err := h.svc.BatchDelete(uuids, user.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			BadRequest(c, "some transactions not found or not owned by current user")
+			return
+		}
+		InternalError(c, "failed to batch delete transactions")
 		return
 	}
 
-	result := database.GetDB().Where("id IN ?", uuids).Delete(&models.Transaction{})
 	RespondJSON(c, http.StatusOK, map[string]interface{}{
-		"deleted": result.RowsAffected,
+		"deleted": deleted,
 	})
 }
 
@@ -402,19 +316,12 @@ func (h *TransactionHandler) BatchUpdate(c *gin.Context) {
 		return
 	}
 
-	// verify category exists and belongs to user
 	catUUID, err := uuid.Parse(input.CategoryID)
 	if err != nil {
 		BadRequest(c, "invalid category_id")
 		return
 	}
-	var cat models.Category
-	if err := database.GetDB().Where("id = ? AND user_id = ?", catUUID, user.ID).First(&cat).Error; err != nil {
-		NotFound(c, "category not found")
-		return
-	}
 
-	// verify all transaction IDs
 	uuids := make([]uuid.UUID, 0, len(input.IDs))
 	for _, id := range input.IDs {
 		parsed, err := uuid.Parse(id)
@@ -425,15 +332,17 @@ func (h *TransactionHandler) BatchUpdate(c *gin.Context) {
 		uuids = append(uuids, parsed)
 	}
 
-	var count int64
-	database.GetDB().Model(&models.Transaction{}).Where("id IN ? AND user_id = ?", uuids, user.ID).Count(&count)
-	if count != int64(len(uuids)) {
-		BadRequest(c, "some transactions not found or not owned by current user")
+	updated, err := h.svc.BatchUpdateCategory(uuids, catUUID, user.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			BadRequest(c, "some transactions not found or not owned by current user")
+			return
+		}
+		InternalError(c, "failed to batch update transactions")
 		return
 	}
 
-	result := database.GetDB().Model(&models.Transaction{}).Where("id IN ?", uuids).Update("category_id", catUUID)
 	RespondJSON(c, http.StatusOK, map[string]interface{}{
-		"updated": result.RowsAffected,
+		"updated": updated,
 	})
 }

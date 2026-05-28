@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"personal-bookkeeping/internal/app/repository"
-	models "personal-bookkeeping/internal/app/model"
-	cch "personal-bookkeeping/internal/infra/cache"
+	"personal-bookkeeping/internal/infra/database"
+	models "personal-bookkeeping/internal/app/models"
+	cache "personal-bookkeeping/internal/infra/cache"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -42,8 +42,8 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 		}
 
 		// Check token blacklist (logout revocation)
-		if cache := database.GetCache(); cache != nil {
-			exists, _ := cache.Exists(c.Request.Context(), cch.KeyTokenBlacklist(claims.ID))
+		if cacheInst := cache.GetDefault(); cacheInst != nil {
+			exists, _ := cacheInst.Exists(c.Request.Context(), cache.KeyTokenBlacklist(claims.ID))
 			if exists {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "token revoked"})
 				return

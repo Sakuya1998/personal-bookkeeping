@@ -1,0 +1,6 @@
+.git/
+*.md
+Makefile
+logs/
+tmp/
+coverage.out

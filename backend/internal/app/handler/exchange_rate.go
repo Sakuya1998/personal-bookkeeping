@@ -1,22 +1,20 @@
-package handlers
+package handler
 
 import (
-	"context"
 	"net/http"
-	"time"
 
-	"personal-bookkeeping/internal/app/model"
-	"personal-bookkeeping/internal/app/repository"
-	cch "personal-bookkeeping/internal/infra/cache"
+	"personal-bookkeeping/internal/app/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type ExchangeRateHandler struct{}
+type ExchangeRateHandler struct {
+	svc *service.ExchangeRateService
+}
 
-func NewExchangeRateHandler() *ExchangeRateHandler {
-	return &ExchangeRateHandler{}
+func NewExchangeRateHandler(svc *service.ExchangeRateService) *ExchangeRateHandler {
+	return &ExchangeRateHandler{svc: svc}
 }
 
 type CreateExchangeRateInput struct {
@@ -38,20 +36,15 @@ type CreateExchangeRateInput struct {
 // @Success      200 {object} Response
 // @Router       /exchange-rates [get]
 func (h *ExchangeRateHandler) List(c *gin.Context) {
-	var rates []models.ExchangeRate
-	query := database.GetDB().Order("date desc, from_currency asc")
+	date := c.Query("date")
+	from := c.Query("from")
+	to := c.Query("to")
 
-	if date := c.Query("date"); date != "" {
-		query = query.Where("date = ?", date)
+	rates, err := h.svc.List(date, from, to)
+	if err != nil {
+		InternalError(c, "failed to query exchange rates")
+		return
 	}
-	if from := c.Query("from"); from != "" {
-		query = query.Where("from_currency = ?", from)
-	}
-	if to := c.Query("to"); to != "" {
-		query = query.Where("to_currency = ?", to)
-	}
-
-	query.Find(&rates)
 	RespondJSON(c, http.StatusOK, rates)
 }
 
@@ -71,36 +64,15 @@ func (h *ExchangeRateHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if input.Date == "" {
-		input.Date = time.Now().Format("2006-01-02")
+	rate, wasUpdated, err := h.svc.Create(input.FromCurrency, input.ToCurrency, input.Rate, input.Date, input.Source)
+	if err != nil {
+		InternalError(c, "failed to create exchange rate")
+		return
 	}
 
-	rate := models.ExchangeRate{
-		ID:           uuid.New(),
-		FromCurrency: input.FromCurrency,
-		ToCurrency:   input.ToCurrency,
-		Rate:         input.Rate,
-		Date:         input.Date,
-		Source:       input.Source,
-	}
-
-	var existing models.ExchangeRate
-	result := database.GetDB().Where("from_currency = ? AND to_currency = ? AND date = ?",
-		input.FromCurrency, input.ToCurrency, input.Date).First(&existing)
-
-	if result.Error == nil {
-		database.GetDB().Model(&existing).Updates(map[string]interface{}{
-			"rate":   input.Rate,
-			"source": input.Source,
-		})
-		invalidateRateCache(input.FromCurrency, input.ToCurrency, input.Date)
-		RespondJSON(c, http.StatusOK, existing)
+	if wasUpdated {
+		RespondJSON(c, http.StatusOK, rate)
 	} else {
-		if err := database.GetDB().Create(&rate).Error; err != nil {
-			InternalError(c, "failed to create exchange rate")
-			return
-		}
-		invalidateRateCache(input.FromCurrency, input.ToCurrency, input.Date)
 		RespondJSON(c, http.StatusCreated, rate)
 	}
 }
@@ -113,29 +85,12 @@ func (h *ExchangeRateHandler) Create(c *gin.Context) {
 // @Success      200 {object} Response
 // @Router       /exchange-rates/latest [get]
 func (h *ExchangeRateHandler) Latest(c *gin.Context) {
-	type LatestRate struct {
-		FromCurrency string  `json:"from_currency"`
-		ToCurrency   string  `json:"to_currency"`
-		Rate         float64 `json:"rate"`
-		Date         string  `json:"date"`
+	rates, err := h.svc.Latest()
+	if err != nil {
+		InternalError(c, "failed to query latest rates")
+		return
 	}
-
-	var rates []LatestRate
-	database.GetDB().Raw(`
-		SELECT DISTINCT ON (from_currency, to_currency)
-			from_currency, to_currency, rate, date
-		FROM exchange_rates
-		ORDER BY from_currency, to_currency, date DESC
-	`).Scan(&rates)
-
 	RespondJSON(c, http.StatusOK, rates)
-}
-
-type latestRate struct {
-	FromCurrency string  `json:"from_currency"`
-	ToCurrency   string  `json:"to_currency"`
-	Rate         float64 `json:"rate"`
-	Date         string  `json:"date"`
 }
 
 // Delete  godoc
@@ -147,20 +102,19 @@ type latestRate struct {
 // @Success      200 {object} Response
 // @Router       /exchange-rates/{id} [delete]
 func (h *ExchangeRateHandler) Delete(c *gin.Context) {
-	id := c.Param("id")
-	result := database.GetDB().Delete(&models.ExchangeRate{}, "id = ?", id)
-	if result.RowsAffected == 0 {
-		NotFound(c, "exchange rate not found")
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		BadRequest(c, "invalid exchange rate id")
+		return
+	}
+
+	if err := h.svc.Delete(id); err != nil {
+		if err == service.ErrNotFound {
+			NotFound(c, "exchange rate not found")
+			return
+		}
+		InternalError(c, "failed to delete exchange rate")
 		return
 	}
 	RespondJSON(c, http.StatusOK, nil)
-}
-
-func invalidateRateCache(from, to, date string) {
-	c := database.GetCache()
-	if c == nil {
-		return
-	}
-	ctx := context.Background()
-	_ = c.Delete(ctx, cch.KeyExchangeRate(from, to, date))
 }

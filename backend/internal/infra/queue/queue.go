@@ -43,3 +43,12 @@ type Stats struct {
 
 // ErrQueueStopped 队列已停止
 var ErrQueueStopped = errors.New("queue: stopped")
+
+// defaultQueue is the package-level default queue instance.
+var defaultQueue Queue
+
+// SetDefault sets the package-level default queue instance.
+func SetDefault(q Queue) { defaultQueue = q }
+
+// GetDefault returns the package-level default queue instance.
+func GetDefault() Queue { return defaultQueue }

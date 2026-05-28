@@ -14,8 +14,13 @@ const LedgersPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const loadLedgers = useCallback(async () => {
-    const res = await client.get<ApiResponse<Ledger[]>>('/ledgers');
-    setLedgers(res.data.data);
+    try {
+      const res = await client.get<ApiResponse<Ledger[]>>('/ledgers');
+      setLedgers(res.data.data);
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '加载账本失败');
+    }
   }, [setLedgers]);
 
   useEffect(() => {

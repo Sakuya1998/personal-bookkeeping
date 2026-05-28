@@ -1,24 +1,22 @@
-package handlers
+package handler
 
 import (
-	"context"
-	"encoding/json"
+	"errors"
 	"net/http"
-	"time"
 
-	"personal-bookkeeping/internal/app/model"
-	"personal-bookkeeping/internal/app/repository"
-	cch "personal-bookkeeping/internal/infra/cache"
+	"personal-bookkeeping/internal/app/models"
+	"personal-bookkeeping/internal/app/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
-type CategoryHandler struct{}
+type CategoryHandler struct {
+	svc *service.CategoryService
+}
 
-func NewCategoryHandler() *CategoryHandler {
-	return &CategoryHandler{}
+func NewCategoryHandler(svc *service.CategoryService) *CategoryHandler {
+	return &CategoryHandler{svc: svc}
 }
 
 type CreateCategoryInput struct {
@@ -51,45 +49,16 @@ func (h *CategoryHandler) List(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	ledgerID := c.Param("ledger_id")
 
-	// Try cache
-	cchInstance := database.GetCache()
-	if cchInstance != nil {
-		key := cch.KeyCategoryList(user.ID.String())
-		if cached, err := cchInstance.Get(c.Request.Context(), key); err == nil {
-			var roots []models.Category
-			if json.Unmarshal([]byte(cached), &roots) == nil {
-				RespondJSON(c, http.StatusOK, roots)
-				return
-			}
-		}
+	lid, err := uuid.Parse(ledgerID)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
+		return
 	}
 
-	var categories []models.Category
-	database.GetDB().Where("user_id = ? AND (ledger_id IS NULL OR ledger_id = ?)", user.ID, ledgerID).
-		Order("sort_order asc, name asc").Find(&categories)
-
-	categoryMap := make(map[uuid.UUID]*models.Category)
-	for i := range categories {
-		categories[i].Children = []models.Category{}
-		categoryMap[categories[i].ID] = &categories[i]
-	}
-	var roots []models.Category
-	for i := range categories {
-		if categories[i].ParentID != nil {
-			if parent, ok := categoryMap[*categories[i].ParentID]; ok {
-				parent.Children = append(parent.Children, categories[i])
-			}
-		} else {
-			roots = append(roots, categories[i])
-		}
-	}
-
-	// Set cache
-	if cchInstance != nil {
-		key := cch.KeyCategoryList(user.ID.String())
-		if data, err := json.Marshal(roots); err == nil {
-			_ = cchInstance.Set(c.Request.Context(), key, string(data), 10*time.Minute)
-		}
+	roots, err := h.svc.ListCategories(lid, user.ID)
+	if err != nil {
+		InternalError(c, "failed to query categories")
+		return
 	}
 
 	RespondJSON(c, http.StatusOK, roots)
@@ -112,33 +81,32 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 		return
 	}
 
-	category := models.Category{
-		ID:       uuid.New(),
-		UserID:   user.ID,
-		Name:     input.Name,
-		Type:     input.Type,
-		Icon:     input.Icon,
-		Color:    input.Color,
-		IsActive: true,
-	}
-
+	var ledgerUUID *uuid.UUID
 	if input.LedgerID != nil {
-		if parsed, err := uuid.Parse(*input.LedgerID); err == nil {
-			category.LedgerID = &parsed
+		parsed, err := uuid.Parse(*input.LedgerID)
+		if err != nil {
+			BadRequest(c, "invalid ledger_id format")
+			return
 		}
-	}
-	if input.ParentID != nil {
-		if parsed, err := uuid.Parse(*input.ParentID); err == nil {
-			category.ParentID = &parsed
-		}
+		ledgerUUID = &parsed
 	}
 
-	if err := database.GetDB().Create(&category).Error; err != nil {
+	var parentUUID *uuid.UUID
+	if input.ParentID != nil {
+		parsed, err := uuid.Parse(*input.ParentID)
+		if err != nil {
+			BadRequest(c, "invalid parent_id format")
+			return
+		}
+		parentUUID = &parsed
+	}
+
+	category, err := h.svc.CreateCategory(user.ID, input.Name, input.Type, input.Icon, input.Color, ledgerUUID, parentUUID)
+	if err != nil {
 		InternalError(c, "failed to create category")
 		return
 	}
 
-	invalidateCategoryCache(user.ID)
 	RespondJSON(c, http.StatusCreated, category)
 }
 
@@ -156,48 +124,37 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	id := c.Param("id")
 
-	var category models.Category
-	if err := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).First(&category).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			NotFound(c, "category not found")
-			return
-		}
-		InternalError(c, "database error")
-		return
-	}
-
 	var input UpdateCategoryInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		BadRequest(c, err.Error())
 		return
 	}
 
-	updates := map[string]interface{}{}
-	if input.Name != nil {
-		updates["name"] = *input.Name
+	cid, err := uuid.Parse(id)
+	if err != nil {
+		BadRequest(c, "invalid category id")
+		return
 	}
-	if input.Type != nil {
-		updates["type"] = *input.Type
-	}
-	if input.Icon != nil {
-		updates["icon"] = *input.Icon
-	}
-	if input.Color != nil {
-		updates["color"] = *input.Color
-	}
-	if input.IsActive != nil {
-		updates["is_active"] = *input.IsActive
-	}
+
+	var parentUUID *uuid.UUID
 	if input.ParentID != nil {
-		if parsed, err := uuid.Parse(*input.ParentID); err == nil {
-			updates["parent_id"] = parsed
+		parsed, err := uuid.Parse(*input.ParentID)
+		if err != nil {
+			BadRequest(c, "invalid parent_id format")
+			return
 		}
+		parentUUID = &parsed
 	}
 
-	database.GetDB().Model(&category).Updates(updates)
-	database.GetDB().First(&category, category.ID)
-
-	invalidateCategoryCache(user.ID)
+	category, err := h.svc.UpdateCategory(cid, user.ID, input.Name, input.Type, input.Icon, input.Color, parentUUID, input.IsActive)
+	if err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			NotFound(c, "category not found")
+			return
+		}
+		InternalError(c, "failed to update category")
+		return
+	}
 
 	RespondJSON(c, http.StatusOK, category)
 }
@@ -214,27 +171,27 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	id := c.Param("id")
 
-	var count int64
-	database.GetDB().Model(&models.Transaction{}).Where("category_id = ?", id).Count(&count)
-	if count > 0 {
-		Conflict(c, "cannot delete category with existing transactions, deactivate it instead")
+	cid, err := uuid.Parse(id)
+	if err != nil {
+		BadRequest(c, "invalid category id")
 		return
 	}
 
-	result := database.GetDB().Where("id = ? AND user_id = ?", id, user.ID).Delete(&models.Category{})
-	if result.RowsAffected == 0 {
-		NotFound(c, "category not found")
+	err = h.svc.DeleteCategory(cid, user.ID)
+	if err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			NotFound(c, "category not found")
+			return
+		}
+		// Check for conflict errors (child categories or existing transactions)
+		// The service layer returns ErrConflict wrapped with descriptive messages
+		if errors.Is(err, service.ErrConflict) {
+			Conflict(c, err.Error())
+			return
+		}
+		InternalError(c, "failed to delete category")
 		return
 	}
 
-	invalidateCategoryCache(user.ID)
 	RespondJSON(c, http.StatusOK, nil)
-}
-
-func invalidateCategoryCache(userID uuid.UUID) {
-	c := database.GetCache()
-	if c == nil {
-		return
-	}
-	_ = c.Delete(context.Background(), cch.KeyCategoryList(userID.String()))
 }

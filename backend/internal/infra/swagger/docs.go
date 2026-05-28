@@ -43,7 +43,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.LoginInput"
+                            "$ref": "#/definitions/handler.LoginInput"
                         }
                     }
                 ],
@@ -53,13 +53,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/handlers.Response"
+                                    "$ref": "#/definitions/handler.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.authResponse"
+                                            "$ref": "#/definitions/handler.authResponse"
                                         }
                                     }
                                 }
@@ -69,7 +69,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -95,13 +95,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/handlers.Response"
+                                    "$ref": "#/definitions/handler.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.userResponse"
+                                            "$ref": "#/definitions/handler.userResponse"
                                         }
                                     }
                                 }
@@ -130,7 +130,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.RegisterInput"
+                            "$ref": "#/definitions/handler.RegisterInput"
                         }
                     }
                 ],
@@ -140,13 +140,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/handlers.Response"
+                                    "$ref": "#/definitions/handler.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.authResponse"
+                                            "$ref": "#/definitions/handler.authResponse"
                                         }
                                     }
                                 }
@@ -156,13 +156,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -192,7 +192,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.CreateCategoryInput"
+                            "$ref": "#/definitions/handler.CreateCategoryInput"
                         }
                     }
                 ],
@@ -200,7 +200,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -237,7 +237,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.UpdateCategoryInput"
+                            "$ref": "#/definitions/handler.UpdateCategoryInput"
                         }
                     }
                 ],
@@ -245,7 +245,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -276,7 +276,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -320,7 +320,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -348,7 +348,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.CreateExchangeRateInput"
+                            "$ref": "#/definitions/handler.CreateExchangeRateInput"
                         }
                     }
                 ],
@@ -356,7 +356,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -380,7 +380,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -413,7 +413,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -437,7 +437,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -465,7 +465,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.CreateLedgerInput"
+                            "$ref": "#/definitions/handler.CreateLedgerInput"
                         }
                     }
                 ],
@@ -473,7 +473,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -506,13 +506,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -547,7 +547,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.UpdateLedgerInput"
+                            "$ref": "#/definitions/handler.UpdateLedgerInput"
                         }
                     }
                 ],
@@ -555,7 +555,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -586,7 +586,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -621,13 +621,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/handlers.Response"
+                                    "$ref": "#/definitions/handler.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.ledgerSummary"
+                                            "$ref": "#/definitions/handler.ledgerSummary"
                                         }
                                     }
                                 }
@@ -664,7 +664,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -743,13 +743,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/handlers.Response"
+                                    "$ref": "#/definitions/handler.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handlers.transactionList"
+                                            "$ref": "#/definitions/handler.transactionList"
                                         }
                                     }
                                 }
@@ -783,7 +783,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.CreateTransactionInput"
+                            "$ref": "#/definitions/handler.CreateTransactionInput"
                         }
                     }
                 ],
@@ -791,7 +791,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -828,7 +828,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.UpdateTransactionInput"
+                            "$ref": "#/definitions/handler.UpdateTransactionInput"
                         }
                     }
                 ],
@@ -836,7 +836,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -867,7 +867,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.Response"
+                            "$ref": "#/definitions/handler.Response"
                         }
                     }
                 }
@@ -875,7 +875,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "handlers.CategorySummary": {
+        "handler.CategorySummary": {
             "type": "object",
             "properties": {
                 "category_icon": {
@@ -895,7 +895,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.CreateCategoryInput": {
+        "handler.CreateCategoryInput": {
             "type": "object",
             "required": [
                 "name",
@@ -930,7 +930,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.CreateExchangeRateInput": {
+        "handler.CreateExchangeRateInput": {
             "type": "object",
             "required": [
                 "from_currency",
@@ -960,7 +960,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.CreateLedgerInput": {
+        "handler.CreateLedgerInput": {
             "type": "object",
             "required": [
                 "name"
@@ -989,7 +989,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.CreateTransactionInput": {
+        "handler.CreateTransactionInput": {
             "type": "object",
             "required": [
                 "amount",
@@ -1042,7 +1042,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.LoginInput": {
+        "handler.LoginInput": {
             "type": "object",
             "required": [
                 "password",
@@ -1059,7 +1059,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.RegisterInput": {
+        "handler.RegisterInput": {
             "type": "object",
             "required": [
                 "email",
@@ -1086,7 +1086,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.Response": {
+        "handler.Response": {
             "type": "object",
             "properties": {
                 "code": {
@@ -1098,7 +1098,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.UpdateCategoryInput": {
+        "handler.UpdateCategoryInput": {
             "type": "object",
             "properties": {
                 "color": {
@@ -1125,7 +1125,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.UpdateLedgerInput": {
+        "handler.UpdateLedgerInput": {
             "type": "object",
             "properties": {
                 "base_currency": {
@@ -1152,7 +1152,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.UpdateTransactionInput": {
+        "handler.UpdateTransactionInput": {
             "type": "object",
             "properties": {
                 "amount": {
@@ -1188,7 +1188,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.authResponse": {
+        "handler.authResponse": {
             "type": "object",
             "properties": {
                 "token": {
@@ -1196,11 +1196,11 @@ const docTemplate = `{
                     "example": "eyJ..."
                 },
                 "user": {
-                    "$ref": "#/definitions/handlers.userResponse"
+                    "$ref": "#/definitions/handler.userResponse"
                 }
             }
         },
-        "handlers.ledgerSummary": {
+        "handler.ledgerSummary": {
             "type": "object",
             "properties": {
                 "balance": {
@@ -1213,7 +1213,7 @@ const docTemplate = `{
                 "expense_by_category": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/handlers.CategorySummary"
+                        "$ref": "#/definitions/handler.CategorySummary"
                     }
                 },
                 "total_expense": {
@@ -1224,7 +1224,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.transactionList": {
+        "handler.transactionList": {
             "type": "object",
             "properties": {
                 "items": {
@@ -1247,7 +1247,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.userResponse": {
+        "handler.userResponse": {
             "type": "object",
             "properties": {
                 "created_at": {

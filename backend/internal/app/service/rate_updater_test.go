@@ -1,4 +1,4 @@
-package services
+package service
 
 import (
 	"encoding/json"
@@ -136,7 +136,7 @@ func TestUpdateExchangeRates_EmptyAPIKey(t *testing.T) {
 		APIKey:   "",
 		Base:     "USD",
 	}
-	err := UpdateExchangeRates(cfg)
+	err := UpdateExchangeRates(nil, cfg)
 	if err != nil {
 		t.Fatalf("expected nil for empty API key, got: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestUpdateExchangeRates_EmptyAPIKeyWithBase(t *testing.T) {
 		APIKey:   "",
 		Base:     "",
 	}
-	err := UpdateExchangeRates(cfg)
+	err := UpdateExchangeRates(nil, cfg)
 	if err != nil {
 		t.Fatalf("expected nil for empty API key, got: %v", err)
 	}
@@ -156,13 +156,13 @@ func TestUpdateExchangeRates_EmptyAPIKeyWithBase(t *testing.T) {
 
 func TestUpdateExchangeRates_FrankfurterNoAPIKey(t *testing.T) {
 	// frankfurter doesn't need an API key, so this should proceed
-	// and likely fail because database.GetDB() returns nil in test env.
+	// and likely fail because repository.GetDB() returns nil in test env.
 	cfg := &config.ExchangeRateConfig{
 		Provider: "frankfurter",
 		APIKey:   "",
 		Base:     "USD",
 	}
-	err := UpdateExchangeRates(cfg)
+	err := UpdateExchangeRates(nil, cfg)
 	if err == nil {
 		t.Log("UpdateExchangeRates returned nil — may indicate DB was available or external fetch worked")
 	} else {

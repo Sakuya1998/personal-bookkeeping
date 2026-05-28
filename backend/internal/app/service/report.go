@@ -1,9 +1,8 @@
-package services
+package service
 
 import (
 	"bytes"
 	"fmt"
-	"log/slog"
 	"math"
 	"time"
 
@@ -80,9 +79,12 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 		prevEnd = startDate
 	}
 
-	// Get ledger name
+	// Get ledger name (with ownership check)
 	var ledgerName string
-	db.Raw("SELECT name FROM ledgers WHERE id = ?", ledgerID).Scan(&ledgerName)
+	result := db.Raw("SELECT name FROM ledgers WHERE id = ? AND user_id = ?", ledgerID, userID).Scan(&ledgerName)
+	if result.RowsAffected == 0 {
+		return nil, fmt.Errorf("ledger not found or access denied")
+	}
 
 	// This period totals
 	var incomeTotal, expenseTotal float64
@@ -115,7 +117,7 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 		FROM transactions t
 		LEFT JOIN categories c ON c.id = t.category_id
 		WHERE t.ledger_id=? AND t.user_id=? AND t.transaction_date>=? AND t.transaction_date<?
-		GROUP BY c.name, c.icon, t.type
+		GROUP BY t.category_id, c.name, c.icon, t.type
 		ORDER BY total DESC`, ledgerID, userID, startDate, endDate).Scan(&catRows)
 
 	var categories []CategorySummary
@@ -314,5 +316,7 @@ func truncate(s string, maxLen int) string {
 	return string(runes[:maxLen-1]) + "…"
 }
 
-// Ensure unused imports don't cause compile errors
-var _ = slog.Default
+// BuildReportData builds report data using the service's DB instance.
+func (s *ReportService) BuildReportData(ledgerID, userID uuid.UUID, period ReportPeriod, periodStr string) (*ReportData, error) {
+	return BuildReportData(s.DB, ledgerID, userID, period, periodStr)
+}

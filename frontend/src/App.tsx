@@ -6,15 +6,16 @@ import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { useAppStore } from './store/appStore';
+import ErrorBoundary from './components/ErrorBoundary';
 import AppLayout from './pages/AppLayout';
-import LoginPage from './pages/LoginPage';
-import TransactionsPage from './pages/TransactionsPage';
-import LedgersPage from './pages/LedgersPage';
-import CategoriesPage from './pages/CategoriesPage';
-import ExchangeRatesPage from './pages/ExchangeRatesPage';
-import SettingsPage from './pages/SettingsPage';
-import RecurringPage from './pages/RecurringPage';
-import BudgetPage from './pages/BudgetPage';
+const LoginPage = React.lazy(() => import('./pages/LoginPage'));
+const TransactionsPage = React.lazy(() => import('./pages/TransactionsPage'));
+const LedgersPage = React.lazy(() => import('./pages/LedgersPage'));
+const CategoriesPage = React.lazy(() => import('./pages/CategoriesPage'));
+const ExchangeRatesPage = React.lazy(() => import('./pages/ExchangeRatesPage'));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
+const RecurringPage = React.lazy(() => import('./pages/RecurringPage'));
+const BudgetPage = React.lazy(() => import('./pages/BudgetPage'));
 
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const CalendarViewPage = React.lazy(() => import('./pages/CalendarViewPage'));
@@ -38,21 +39,25 @@ const App: React.FC = () => {
     <ConfigProvider locale={zhCN}>
       <AntApp>
         <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route index element={<Suspense fallback={<PageLoading />}><DashboardPage /></Suspense>} />
-              <Route path="transactions" element={<TransactionsPage />} />
-              <Route path="ledgers" element={<LedgersPage />} />
-              <Route path="categories" element={<CategoriesPage />} />
-              <Route path="exchange-rates" element={<ExchangeRatesPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="recurring" element={<RecurringPage />} />
-              <Route path="budgets" element={<BudgetPage />} />
-              <Route path="ledgers/:ledger_id/calendar" element={<Suspense fallback={<PageLoading />}><CalendarViewPage /></Suspense>} />
-            </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoading />}>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                  <Route index element={<DashboardPage />} />
+                  <Route path="transactions" element={<TransactionsPage />} />
+                  <Route path="ledgers" element={<LedgersPage />} />
+                  <Route path="categories" element={<CategoriesPage />} />
+                  <Route path="exchange-rates" element={<ExchangeRatesPage />} />
+                  <Route path="settings" element={<SettingsPage />} />
+                  <Route path="recurring" element={<RecurringPage />} />
+                  <Route path="budgets" element={<BudgetPage />} />
+                  <Route path="ledgers/:ledger_id/calendar" element={<CalendarViewPage />} />
+                </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </BrowserRouter>
       </AntApp>
     </ConfigProvider>

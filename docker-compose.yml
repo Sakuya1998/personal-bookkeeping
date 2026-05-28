@@ -23,6 +23,8 @@ services:
     restart: unless-stopped
     ports:
       - "6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -30,7 +32,7 @@ services:
       retries: 5
 
   backend:
-    image: ghcr.io/sakuya1998/personal-bookkeeping/backend:main
+    image: ghcr.io/sakuya1998/personal-bookkeeping/backend:latest
     build: ./backend
     restart: unless-stopped
     depends_on:
@@ -52,15 +54,21 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://localhost:5173
       CACHE_TYPE: redis
       CACHE_REDIS_ADDR: redis:6379
-      OCR_ENDPOINT: http://paddleocr:9000
+      OCR_ENDPOINT: http://paddleocr:5000
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   paddleocr:
     image: gunthercox/ocr-service:latest-paddleocr
     restart: unless-stopped
     ports:
-      - "9000:5000"
+      - "5000"   # only internal network, not exposed to host
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\""]
       interval: 30s
@@ -69,13 +77,20 @@ services:
       start_period: 120s
 
   frontend:
-    image: ghcr.io/sakuya1998/personal-bookkeeping/frontend:main
+    image: ghcr.io/sakuya1998/personal-bookkeeping/frontend:latest
     build: ./frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "3000:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   e2e:
     profiles:
@@ -97,3 +112,4 @@ services:
 
 volumes:
   pgdata:
+  redis_data:

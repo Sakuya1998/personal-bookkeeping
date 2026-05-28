@@ -1,4 +1,4 @@
-package handlers_test
+package handler_test
 
 import (
 	"bytes"
@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"personal-bookkeeping/internal/app/repository"
-	routes "personal-bookkeeping/internal/app/router"
+	"personal-bookkeeping/internal/infra/database"
+	"personal-bookkeeping/internal/app/router"
 	"personal-bookkeeping/internal/infra/config"
 
 	"github.com/gin-gonic/gin"
@@ -60,7 +60,7 @@ func testEngine(t *testing.T) *gin.Engine {
 	}
 
 	r := gin.New()
-	routes.Setup(r, cfg)
+	router.Setup(r, cfg)
 	return r
 }
 

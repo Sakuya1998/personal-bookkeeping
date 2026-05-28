@@ -1,4 +1,4 @@
-package services
+package service
 
 import (
 	"context"
@@ -7,35 +7,39 @@ import (
 	"strconv"
 	"time"
 
-	"personal-bookkeeping/internal/app/model"
-	"personal-bookkeeping/internal/app/repository"
+	"personal-bookkeeping/internal/app/models"
 	cch "personal-bookkeeping/internal/infra/cache"
+
+	"gorm.io/gorm"
 )
 
 // --- RateProvider abstraction for testability ---
 
 // RateProvider abstracts the database and cache dependencies needed by GetExchangeRate.
 type RateProvider interface {
-	// GetCache returns the cache instance.
 	GetCache() cch.Cache
-	// QueryForwardRate queries the exchange rate from fromCurrency to toCurrency for the given date.
 	QueryForwardRate(fromCurrency, toCurrency, date string) (*models.ExchangeRate, error)
-	// QueryReverseRate queries the exchange rate from toCurrency to fromCurrency for the given date.
 	QueryReverseRate(fromCurrency, toCurrency, date string) (*models.ExchangeRate, error)
-	// SetCacheFloat stores a float64 value in cache with the given TTL.
 	SetCacheFloat(key string, val float64, ttl time.Duration)
 }
 
-// defaultProvider is the production implementation that uses global DB and cache.
-type defaultProvider struct{}
+// defaultProvider is the production implementation backed by injected DB and cache.
+type defaultProvider struct {
+	db    *gorm.DB
+	cache cch.Cache
+}
+
+func newDefaultProvider(db *gorm.DB, c cch.Cache) *defaultProvider {
+	return &defaultProvider{db: db, cache: c}
+}
 
 func (p *defaultProvider) GetCache() cch.Cache {
-	return database.GetCache()
+	return p.cache
 }
 
 func (p *defaultProvider) QueryForwardRate(fromCurrency, toCurrency, date string) (*models.ExchangeRate, error) {
 	var rate models.ExchangeRate
-	err := database.GetDB().Where("from_currency = ? AND to_currency = ? AND date <= ?",
+	err := p.db.Where("from_currency = ? AND to_currency = ? AND date <= ?",
 		fromCurrency, toCurrency, date).
 		Order("date DESC").
 		First(&rate).Error
@@ -47,7 +51,7 @@ func (p *defaultProvider) QueryForwardRate(fromCurrency, toCurrency, date string
 
 func (p *defaultProvider) QueryReverseRate(fromCurrency, toCurrency, date string) (*models.ExchangeRate, error) {
 	var reverse models.ExchangeRate
-	err := database.GetDB().Where("from_currency = ? AND to_currency = ? AND date <= ?",
+	err := p.db.Where("from_currency = ? AND to_currency = ? AND date <= ?",
 		toCurrency, fromCurrency, date).
 		Order("date DESC").
 		First(&reverse).Error
@@ -58,18 +62,23 @@ func (p *defaultProvider) QueryReverseRate(fromCurrency, toCurrency, date string
 }
 
 func (p *defaultProvider) SetCacheFloat(key string, val float64, ttl time.Duration) {
-	c := database.GetCache()
-	if c == nil {
+	if p.cache == nil {
 		return
 	}
-	if err := c.Set(context.Background(), key, fmt.Sprintf("%f", val), ttl); err != nil {
+	if err := p.cache.Set(context.Background(), key, fmt.Sprintf("%f", val), ttl); err != nil {
 		slog.Warn("cache set failed", "key", key, "error", err)
 	}
 }
 
 // provider is the package-level provider used by GetExchangeRate.
-// It can be replaced in tests via SetRateProvider.
-var provider RateProvider = &defaultProvider{}
+// It must be initialized via InitExchangeRateProvider before use.
+var provider RateProvider
+
+// InitExchangeRateProvider initializes the global exchange rate provider.
+// Called during server startup in main.go with the infra layer's DB and cache.
+func InitExchangeRateProvider(db *gorm.DB, c cch.Cache) {
+	provider = newDefaultProvider(db, c)
+}
 
 // SetRateProvider allows tests to inject a mock RateProvider.
 func SetRateProvider(p RateProvider) {
@@ -78,7 +87,11 @@ func SetRateProvider(p RateProvider) {
 
 // GetExchangeRate returns the exchange rate from foreign_curr to base_curr on the given date.
 // Returns 0 if not found. Results are cached for 1 hour.
+// Panics if InitExchangeRateProvider was not called during startup.
 func GetExchangeRate(fromCurrency, toCurrency, date string) (float64, error) {
+	if provider == nil {
+		return 0, fmt.Errorf("exchange rate provider not initialized")
+	}
 	return getExchangeRate(provider, fromCurrency, toCurrency, date)
 }
 
@@ -93,10 +106,8 @@ func getExchangeRate(p RateProvider, fromCurrency, toCurrency, date string) (flo
 		}
 	}
 
-	// Try forward rate
 	rate, err := p.QueryForwardRate(fromCurrency, toCurrency, date)
 	if err != nil {
-		// Try reverse rate
 		reverse, err2 := p.QueryReverseRate(fromCurrency, toCurrency, date)
 		if err2 != nil {
 			return 0, err2
@@ -111,9 +122,4 @@ func getExchangeRate(p RateProvider, fromCurrency, toCurrency, date string) (flo
 
 	p.SetCacheFloat(cch.KeyExchangeRate(fromCurrency, toCurrency, date), rate.Rate, time.Hour)
 	return rate.Rate, nil
-}
-
-// setCacheFloat is a legacy helper kept for backward compatibility.
-func setCacheFloat(key string, val float64, ttl time.Duration) {
-	(&defaultProvider{}).SetCacheFloat(key, val, ttl)
 }

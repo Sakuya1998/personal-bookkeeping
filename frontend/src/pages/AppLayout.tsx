@@ -13,7 +13,14 @@ import { useAppStore } from '../store/appStore';
 const { Header, Sider, Content } = Layout;
 
 const AppLayout: React.FC = () => {
-  const { user, setUser, setLedgers, ledgers, currentLedger, setCurrentLedger, logout, token } = useAppStore();
+  const user = useAppStore(s => s.user);
+  const token = useAppStore(s => s.token);
+  const ledgers = useAppStore(s => s.ledgers);
+  const currentLedger = useAppStore(s => s.currentLedger);
+  const setUser = useAppStore(s => s.setUser);
+  const setLedgers = useAppStore(s => s.setLedgers);
+  const setCurrentLedger = useAppStore(s => s.setCurrentLedger);
+  const logout = useAppStore(s => s.logout);
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();

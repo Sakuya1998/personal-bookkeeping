@@ -14,7 +14,7 @@ const ExchangeRatesPage: React.FC = () => {
   useEffect(() => {
     client.get<ApiResponse<ExchangeRate[]>>('/exchange-rates').then((res) => {
       setRates(res.data.data);
-    });
+    }).catch(err => console.error('获取汇率失败:', err));
   }, []);
 
   const handleSubmit = async (values: Record<string, unknown>) => {
@@ -36,11 +36,16 @@ const ExchangeRatesPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await client.delete(`/exchange-rates/${id}`);
-    message.success('删除成功');
-    client.get<ApiResponse<ExchangeRate[]>>('/exchange-rates').then((res) => {
-      setRates(res.data.data);
-    });
+    try {
+      await client.delete(`/exchange-rates/${id}`);
+      message.success('删除成功');
+      client.get<ApiResponse<ExchangeRate[]>>('/exchange-rates').then((res) => {
+        setRates(res.data.data);
+      });
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '删除失败');
+    }
   };
 
   const currencyOpts = CURRENCIES.map(c => ({ label: `${c.symbol} ${c.code}`, value: c.code }));

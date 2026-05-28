@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Tabs, Table, Button, Modal, Form, Input, Space, Popconfirm, message } from 'antd';
+import { Tabs, Table, Button, Modal, Form, Input, InputNumber, Space, Popconfirm, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import client from '../api/client';
 import { ApiResponse, Category } from '../api/types';
@@ -26,13 +26,17 @@ const CategoriesPage: React.FC = () => {
       client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`).then((res) => {
         setIncome(res.data.data.filter((c: Category) => c.type === 'income'));
         setExpense(res.data.data.filter((c: Category) => c.type === 'expense'));
-      });
+      }).catch(err => console.error('获取分类失败:', err));
     }
   }, [currentLedger]);
 
   const handleSubmit = async (values: Record<string, unknown>) => {
     try {
-      const data = { ...values, type };
+      const data = {
+        ...values,
+        type,
+        sort_order: values.sort_order,
+      };
       if (editing) {
         await client.put(`/categories/${editing.id}`, data);
         message.success('更新成功');
@@ -111,7 +115,7 @@ const CategoriesPage: React.FC = () => {
             <Input placeholder="#1890ff" />
           </Form.Item>
           <Form.Item name="sort_order" label="排序">
-            <Input type="number" />
+            <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>

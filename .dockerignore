@@ -1,0 +1,9 @@
+.git/
+.gitignore
+.github/
+.hermes/
+*.md
+Makefile
+logs/
+tmp/
+coverage.out

@@ -48,3 +48,12 @@ func KeyCategoryList(userID string) string {
 func KeyTokenBlacklist(jti string) string {
 	return "token:blacklist:" + jti
 }
+
+// defaultCache is the package-level default cache instance.
+var defaultCache Cache
+
+// SetDefault sets the package-level default cache instance.
+func SetDefault(c Cache) { defaultCache = c }
+
+// GetDefault returns the package-level default cache instance.
+func GetDefault() Cache { return defaultCache }

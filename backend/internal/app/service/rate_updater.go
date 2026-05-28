@@ -1,4 +1,4 @@
-package services
+package service
 
 import (
 	"context"
@@ -10,8 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"personal-bookkeeping/internal/app/model"
-	"personal-bookkeeping/internal/app/repository"
+	"personal-bookkeeping/internal/app/models"
 	"personal-bookkeeping/internal/infra/config"
 
 	"github.com/google/uuid"
@@ -36,7 +35,7 @@ type frankfurterResponse struct {
 
 // UpdateExchangeRates 从外部 API 拉取最新汇率并写入 DB。
 // 只更新涉及配置中 base 货币的汇率对。
-func UpdateExchangeRates(cfg *config.ExchangeRateConfig) error {
+func UpdateExchangeRates(db *gorm.DB, cfg *config.ExchangeRateConfig) error {
 	if cfg.APIKey == "" && cfg.Provider == "exchangerate-api" {
 		slog.Warn("exchange rate auto-update: no API key configured, skipping")
 		return nil
@@ -55,7 +54,7 @@ func UpdateExchangeRates(cfg *config.ExchangeRateConfig) error {
 	date := time.Now().Format("2006-01-02")
 	today := date
 
-	return storeRates(database.GetDB(), base, rates, today, source)
+	return storeRates(db, base, rates, today, source)
 }
 
 func fetchRates(provider, apiKey, base string) (map[string]float64, string, error) {

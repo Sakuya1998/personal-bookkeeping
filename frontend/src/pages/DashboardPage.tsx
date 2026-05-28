@@ -46,6 +46,7 @@ const DashboardPage: React.FC = () => {
         setMonthlyTrend(trendRes.data.data || []);
         setCategoryBreakdown(catRes.data.data || []);
       })
+      .catch(err => console.error('获取仪表盘数据失败:', err))
       .finally(() => setLoading(false));
   }, [currentLedger]);
 

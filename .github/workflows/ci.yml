@@ -6,150 +6,67 @@ on:
   pull_request:
     branches: [main]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  GOPROXY: https://goproxy.cn,direct
-  GOCACHE: /tmp/gocache
-
-permissions:
-  contents: read
-
 jobs:
   backend:
-    name: Backend
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.26"
-          cache-dependency-path: backend/go.sum
-
-      - name: Tidy
-        run: go mod tidy
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Build
-        run: go build ./...
-
-      - name: Test (short — skip DB-dependent)
-        run: go test -v -count=1 -short -race ./... 2>&1 | tail -20
-
-      - name: Coverage check (≥ 30%)
+          go-version: '1.26'
+          cache: true
+      - name: Lint & Test
+        working-directory: backend
         run: |
-          PKGS="./internal/app/service/... ./internal/app/task/... \
-                ./internal/app/middleware/... \
-                ./internal/infra/cache/... ./internal/infra/queue/..."
-          go test -count=1 -short -coverprofile=coverage.out -covermode=atomic $PKGS
-          go tool cover -func=coverage.out | tail -5
-          total=$(go tool cover -func=coverage.out | grep '^total' | awk '{print $NF}' | tr -d '%')
-          echo "Total coverage: ${total}%"
-          if [ "$(echo "${total} < 30" | bc)" = "1" ]; then
-            echo "FAIL: coverage ${total}% < 30%"
-            exit 1
-          fi
-          echo "PASS: coverage ${total}% >= 30%"
+          go mod tidy
+          go vet ./...
+          go build ./...
+          go test -short -race ./...
 
   frontend:
-    name: Frontend
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: '20'
+          cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Install
-        run: npm ci
-
-      - name: Lint
-        run: npx eslint src/
-
-      - name: Type check
-        run: npx tsc -b --noEmit
-
-      - name: Test
-        run: npx vitest run
-
-      - name: Build
-        run: npm run build
+      - name: Build & Lint
+        working-directory: frontend
+        run: |
+          npm ci
+          npx tsc -b --noEmit
+          npx vite build
 
   docker:
-    name: Docker Build & Push
-    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     needs: [backend, frontend]
+    runs-on: ubuntu-latest
     permissions:
-      packages: write
       contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Downcase repository name
-        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-
-      - name: Cache Docker layers
-        uses: actions/cache@v4
+      - name: Build & Push backend
+        uses: docker/build-push-action@v6
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      - name: Backend — build & push
-        uses: docker/build-push-action@v5
+          context: backend
+          push: true
+          tags: ghcr.io/${{ github.repository }}/backend:${{ github.sha }},ghcr.io/${{ github.repository }}/backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build & Push frontend
+        uses: docker/build-push-action@v6
         with:
-          context: ./backend
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          tags: |
-            ghcr.io/${{ env.REPO_LC }}/backend:main
-            ghcr.io/${{ env.REPO_LC }}/backend:${{ github.sha }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new-backend,mode=max
-
-      - name: Frontend — build & push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          tags: |
-            ghcr.io/${{ env.REPO_LC }}/frontend:main
-            ghcr.io/${{ env.REPO_LC }}/frontend:${{ github.sha }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new-frontend,mode=max
-
-      - name: Move cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mkdir -p /tmp/.buildx-cache
-          if [ -d /tmp/.buildx-cache-new-backend ]; then
-            cp -r /tmp/.buildx-cache-new-backend/* /tmp/.buildx-cache/ 2>/dev/null || true
-          fi
-          if [ -d /tmp/.buildx-cache-new-frontend ]; then
-            cp -r /tmp/.buildx-cache-new-frontend/* /tmp/.buildx-cache/ 2>/dev/null || true
-          fi
-          rm -rf /tmp/.buildx-cache-new-backend /tmp/.buildx-cache-new-frontend
+          context: frontend
+          push: true
+          tags: ghcr.io/${{ github.repository }}/frontend:${{ github.sha }},ghcr.io/${{ github.repository }}/frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

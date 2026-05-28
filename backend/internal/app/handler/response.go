@@ -1,10 +1,14 @@
-package handlers
+package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
+
+// ErrNotFound 用于事务中检测资源不存在。
+var ErrNotFound = fmt.Errorf("resource not found")
 
 // Response 统一 JSON 响应结构。
 type Response struct {

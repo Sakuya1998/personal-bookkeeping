@@ -1,12 +1,11 @@
-package handlers
+package handler
 
 import (
 	"net/http"
 	"strconv"
 	"time"
 
-	"personal-bookkeeping/internal/app/model"
-	"personal-bookkeeping/internal/app/repository"
+	"personal-bookkeeping/internal/app/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -54,10 +53,9 @@ func (h *LedgerHandler) MonthlyTrend(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	ledgerID := c.Param("ledger_id")
 
-	// verify ledger ownership
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", ledgerID, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
+	lid, err := uuid.Parse(ledgerID)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
 		return
 	}
 
@@ -68,32 +66,10 @@ func (h *LedgerHandler) MonthlyTrend(c *gin.Context) {
 		}
 	}
 
-	endDate := time.Now().AddDate(0, 1, 0) // include current month
-	startDate := endDate.AddDate(0, -months, 0)
-
-	var rows []struct {
-		Month         string  `json:"month"`
-		TotalIncome   float64 `json:"total_income"`
-		TotalExpense  float64 `json:"total_expense"`
-	}
-	database.GetDB().Raw(`
-		SELECT
-			to_char(transaction_date, 'YYYY-MM') AS month,
-			COALESCE(SUM(CASE WHEN type = 'income'  THEN base_amount ELSE 0 END), 0) AS total_income,
-			COALESCE(SUM(CASE WHEN type = 'expense' THEN base_amount ELSE 0 END), 0) AS total_expense
-		FROM transactions
-		WHERE ledger_id = ? AND user_id = ? AND transaction_date >= ? AND transaction_date < ?
-		GROUP BY month
-		ORDER BY month ASC
-	`, ledgerID, user.ID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02")).Scan(&rows)
-
-	items := make([]MonthlyTrendItem, 0, len(rows))
-	for _, r := range rows {
-		items = append(items, MonthlyTrendItem{
-			Month:   r.Month,
-			Income:  r.TotalIncome,
-			Expense: r.TotalExpense,
-		})
+	items, err := h.svc.MonthlyTrend(lid, user.ID, months)
+	if err != nil {
+		InternalError(c, "failed to query monthly trend")
+		return
 	}
 
 	RespondJSON(c, http.StatusOK, items)
@@ -114,69 +90,20 @@ func (h *LedgerHandler) CategoryBreakdown(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	ledgerID := c.Param("ledger_id")
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", ledgerID, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
+	lid, err := uuid.Parse(ledgerID)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
 		return
 	}
 
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
-	txnType := c.Query("type") // optional filter
+	txnType := c.Query("type")
 
-	var rows []struct {
-		CategoryID   uuid.UUID `json:"category_id"`
-		CategoryName string    `json:"category_name"`
-		CategoryIcon string    `json:"category_icon"`
-		Type         string    `json:"type"`
-		Total        float64   `json:"total"`
-	}
-
-	query := database.GetDB().Raw(`
-		SELECT
-			t.category_id,
-			COALESCE(c.name, '')    AS category_name,
-			COALESCE(c.icon, '')    AS category_icon,
-			t.type,
-			COALESCE(SUM(t.base_amount), 0) AS total
-		FROM transactions t
-		LEFT JOIN categories c ON c.id = t.category_id
-		WHERE t.ledger_id = ? AND t.user_id = ?
-	`, ledgerID, user.ID)
-
-	if startDate != "" {
-		query = query.Where("t.transaction_date >= ?", startDate)
-	}
-	if endDate != "" {
-		query = query.Where("t.transaction_date <= ?", endDate)
-	}
-	if txnType != "" {
-		query = query.Where("t.type = ?", txnType)
-	}
-
-	query = query.Group("t.category_id, c.name, c.icon, t.type").Order("total DESC")
-	query.Scan(&rows)
-
-	// calculate total for percentages
-	var grandTotal float64
-	for _, r := range rows {
-		grandTotal += r.Total
-	}
-
-	items := make([]CategoryBreakdownItem, 0, len(rows))
-	for _, r := range rows {
-		pct := 0.0
-		if grandTotal > 0 {
-			pct = r.Total / grandTotal * 100
-		}
-		items = append(items, CategoryBreakdownItem{
-			CategoryID:   r.CategoryID,
-			CategoryName: r.CategoryName,
-			CategoryIcon: r.CategoryIcon,
-			Type:         r.Type,
-			Total:        r.Total,
-			Percentage:   pct,
-		})
+	items, err := h.svc.CategoryBreakdown(lid, user.ID, startDate, endDate, txnType)
+	if err != nil {
+		InternalError(c, "failed to query category breakdown")
+		return
 	}
 
 	RespondJSON(c, http.StatusOK, items)
@@ -196,9 +123,9 @@ func (h *LedgerHandler) DailyTransactions(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	ledgerID := c.Param("ledger_id")
 
-	var ledger models.Ledger
-	if err := database.GetDB().Where("id = ? AND user_id = ?", ledgerID, user.ID).First(&ledger).Error; err != nil {
-		NotFound(c, "ledger not found")
+	lid, err := uuid.Parse(ledgerID)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
 		return
 	}
 
@@ -217,35 +144,10 @@ func (h *LedgerHandler) DailyTransactions(c *gin.Context) {
 		}
 	}
 
-	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
-	endDate := time.Date(year, time.Month(month)+1, 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
-
-	var rows []struct {
-		Date         string  `json:"date"`
-		TotalIncome  float64 `json:"total_income"`
-		TotalExpense float64 `json:"total_expense"`
-		TxnCount     int64   `json:"txn_count"`
-	}
-	database.GetDB().Raw(`
-		SELECT
-			transaction_date AS date,
-			COALESCE(SUM(CASE WHEN type = 'income'  THEN base_amount ELSE 0 END), 0) AS total_income,
-			COALESCE(SUM(CASE WHEN type = 'expense' THEN base_amount ELSE 0 END), 0) AS total_expense,
-			COUNT(*) AS txn_count
-		FROM transactions
-		WHERE ledger_id = ? AND user_id = ? AND transaction_date >= ? AND transaction_date < ?
-		GROUP BY transaction_date
-		ORDER BY transaction_date ASC
-	`, ledgerID, user.ID, startDate, endDate).Scan(&rows)
-
-	items := make([]DailyTransactionItem, 0, len(rows))
-	for _, r := range rows {
-		items = append(items, DailyTransactionItem{
-			Date:    r.Date,
-			Income:  r.TotalIncome,
-			Expense: r.TotalExpense,
-			Count:   r.TxnCount,
-		})
+	items, err := h.svc.DailyTransactions(lid, user.ID, year, month)
+	if err != nil {
+		InternalError(c, "failed to query daily transactions")
+		return
 	}
 
 	RespondJSON(c, http.StatusOK, items)

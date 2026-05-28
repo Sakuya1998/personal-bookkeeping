@@ -5,12 +5,12 @@ db:
   host: "localhost"
   port: "5432"
   user: "bookkeeper"
-  password: "bookkeeper_dev"
+  password: "CHANGE_ME"
   name: "bookkeeping"
   sslmode: "disable"
 
 jwt:
-  secret: "dev-secret-key-change-in-production"
+  secret: "CHANGE_ME-GENERATE-A-RANDOM-SECRET"
   expire_minutes: 10080
 
 cors:
@@ -39,7 +39,7 @@ cache:
 
 queue:
   enabled: true
-  type: "redis"                 # redis | kafka
+  type: "inmemory"              # inmemory | redis | kafka
   workers: 5
   max_retries: 3
   redis:
@@ -65,7 +65,7 @@ scheduler:
 
 exchange_rate:
   provider: "exchangerate-api"  # exchangerate-api | frankfurter
-  api_key: "2173fbe10b18eba2b22d614d"                   # exchangerate-api 需要 API key
+  api_key: "YOUR_EXCHANGERATE_API_KEY"
   base: "CNY"                   # 基准货币（常用账本位币）
 
 ocr:

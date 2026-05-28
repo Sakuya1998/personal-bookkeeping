@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Table, Button, Modal, Form, Input, Select, DatePicker, Tag, Space, message, Popconfirm, Row, Col, Skeleton } from 'antd';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Card, Table, Button, Modal, Form, Input, InputNumber, Select, DatePicker, Tag, Space, message, Popconfirm, Row, Col, Skeleton } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TagsOutlined, CameraOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import client from '../api/client';
@@ -19,6 +19,7 @@ const TransactionsPage: React.FC = () => {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [form] = Form.useForm();
   const [filters, setFilters] = useState({ type: '', category_id: '', keyword: '', start_date: '', end_date: '' });
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [batchCategoryModalOpen, setBatchCategoryModalOpen] = useState(false);
   const [batchCategoryId, setBatchCategoryId] = useState<string | undefined>(undefined);
@@ -43,12 +44,14 @@ const TransactionsPage: React.FC = () => {
     queueMicrotask(() => setSelectedRowKeys([]));
     loadTxns();
     client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`)
-      .then((res) => setCategories(res.data.data));
+      .then((res) => setCategories(res.data.data))
+      .catch(err => console.error('获取分类失败:', err));
   }, [currentLedger, page, pageSize, filters, loadTxns]);
 
   const handleSubmit = async (values: Record<string, unknown>) => {
     const data = {
       ...values,
+      amount: Number(values.amount),
       ledger_id: currentLedger!.id,
       transaction_date: (values.transaction_date as dayjs.Dayjs).format('YYYY-MM-DD'),
       tags: (values.tags as string[]) || [],
@@ -78,9 +81,14 @@ const TransactionsPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await client.delete(`/transactions/${id}`);
-    message.success('删除成功');
-    loadTxns();
+    try {
+      await client.delete(`/transactions/${id}`);
+      message.success('删除成功');
+      loadTxns();
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || '删除失败');
+    }
   };
 
   const handleBatchDelete = () => {
@@ -239,7 +247,13 @@ const TransactionsPage: React.FC = () => {
               <Col><Select allowClear placeholder="类型" style={{ width: 100 }} options={[{ label: '收入', value: 'income' }, { label: '支出', value: 'expense' }]} onChange={(v) => setFilters(p => ({ ...p, type: v || '', category_id: '' }))} /></Col>
               <Col><Select allowClear placeholder="分类" style={{ width: 140 }} options={catOptions} onChange={(v) => setFilters(p => ({ ...p, category_id: v || '' }))} /></Col>
               <Col><DatePicker.RangePicker onChange={(dates) => setFilters(p => ({ ...p, start_date: dates?.[0]?.format('YYYY-MM-DD') || '', end_date: dates?.[1]?.format('YYYY-MM-DD') || '' }))} /></Col>
-              <Col><Input prefix={<SearchOutlined />} placeholder="搜索描述" style={{ width: 160 }} onChange={(e) => setFilters(p => ({ ...p, keyword: e.target.value }))} /></Col>
+              <Col><Input prefix={<SearchOutlined />} placeholder="搜索描述" style={{ width: 160 }} onChange={(e) => {
+                const value = e.target.value;
+                if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+                searchTimeoutRef.current = setTimeout(() => {
+                  setFilters(p => ({ ...p, keyword: value }));
+                }, 300);
+              }} /></Col>
             </Row>
           </Col>
           <Col>
@@ -299,7 +313,7 @@ const TransactionsPage: React.FC = () => {
             }}
           </Form.Item>
           <Form.Item name="amount" label="金额" rules={[{ required: true }]}>
-            <Input type="number" step="0.01" min="0.01" prefix="¥" />
+            <InputNumber step={0.01} min={0.01} prefix="¥" style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="currency" label="币种">
             <Select options={CURRENCIES.map(c => ({ label: `${c.symbol} ${c.code}`, value: c.code }))} />

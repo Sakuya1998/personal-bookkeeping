@@ -178,8 +178,8 @@ func Load() *Config {
 	v.SetDefault("cache.redis.password", "")
 	v.SetDefault("cache.redis.db", 0)
 
-	v.SetDefault("queue.enabled", false)
-	v.SetDefault("queue.type", "redis")
+	v.SetDefault("queue.enabled", true)
+	v.SetDefault("queue.type", "inmemory")
 	v.SetDefault("queue.workers", 5)
 	v.SetDefault("queue.max_retries", 3)
 	v.SetDefault("queue.redis.addr", "localhost:6379")
@@ -248,6 +248,21 @@ func Load() *Config {
 		slog.Error("failed to unmarshal config", "error", err)
 		return nil
 	}
+
+	// — Startup validation —
+	if cfg.JWT.Secret == "" || cfg.JWT.Secret == "dev-secret-key-change-in-production" {
+		slog.Warn("JWT secret is using default or empty value, please set JWT_SECRET in production")
+	}
+	if cfg.ExchangeRate.APIKey == "" {
+		slog.Warn("ExchangeRate API key is empty, exchange rate auto-fetch will fail")
+	}
+
+	slog.Info("config loaded",
+		"server.port", cfg.Server.Port,
+		"db.host", cfg.DB.Host,
+		"cache.type", cfg.Cache.Type,
+		"queue.enabled", cfg.Queue.Enabled,
+	)
 
 	return &cfg
 }

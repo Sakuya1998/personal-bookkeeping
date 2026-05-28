@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"personal-bookkeeping/internal/app/model"
+	"personal-bookkeeping/internal/app/models"
 	"personal-bookkeeping/internal/infra/queue"
 
 	"github.com/google/uuid"
@@ -373,7 +373,7 @@ func TestNullableStr_EmptyString(t *testing.T) {
 func TestHandleExportReport_UnsupportedFormat(t *testing.T) {
 	// This tests that handleExportReport returns an error when given an
 	// unsupported export format.  The function's first dependency is
-	// database.GetDB() which returns nil when the DB is uninitialized.
+	// repository.GetDB() which returns nil when the DB is uninitialized.
 	//
 	// We verify two things:
 	//   1. decodePayload succeeds for a well-formed ExportReportPayload

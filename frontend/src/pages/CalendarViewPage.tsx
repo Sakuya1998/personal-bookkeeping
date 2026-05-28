@@ -44,6 +44,7 @@ const CalendarViewPage: React.FC = () => {
         `/ledgers/${ledgerId}/daily-transactions?year=${currentMonth.year()}&month=${currentMonth.month() + 1}`,
       )
       .then((res) => setDailyData(res.data.data || []))
+      .catch(err => console.error('获取每日数据失败:', err))
       .finally(() => setLoading(false));
   }, [ledgerId, currentMonth]);
 
@@ -55,7 +56,8 @@ const CalendarViewPage: React.FC = () => {
       .get<ApiResponse<{ items: Transaction[] }>>(
         `/ledgers/${ledgerId}/transactions?start_date=${dateStr}&end_date=${dateStr}&page_size=50`,
       )
-      .then((res) => setDayTxns(res.data.data?.items || []));
+      .then((res) => setDayTxns(res.data.data?.items || []))
+      .catch(err => console.error('获取日期交易失败:', err));
   };
 
   // Build calendar data map
