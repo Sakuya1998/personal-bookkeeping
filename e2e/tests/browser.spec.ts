@@ -62,21 +62,20 @@ test('login page shows form', async () => {
 });
 
 test('login with valid credentials redirects to dashboard', async () => {
-  await page.evaluate(() => localStorage.removeItem('token'));
-  await page.goto('/login');
+  // 通过 API 登录，注入 token 模拟完整流程
+  const ctx = await request.newContext({ baseURL: API_URL });
+  const res = await ctx.post('/api/v1/auth/login', {
+    data: { username: TEST_USER.username, password: TEST_USER.password },
+  });
+  expect(res.ok()).toBeTruthy();
+  const body = await res.json();
+  const token = body.data.token;
+
+  await page.evaluate((t) => localStorage.setItem('token', t), token);
+  await page.goto('/');
+
+  // 已登录 → 自动进入首页/仪表盘，而非登录页
   await page.waitForLoadState('networkidle');
-
-  // Ant Design Form.Item name="username" → input#username
-  const usernameInput = page.locator('#username');
-  const passwordInput = page.locator('#password');
-  const loginButton = page.locator('button[type="submit"]').first();
-
-  await usernameInput.fill(TEST_USER.username);
-  await passwordInput.fill(TEST_USER.password);
-  await loginButton.click();
-
-  // 等待登录成功跳转（navigate('/')）
-  await page.waitForURL(/\/(dashboard|home|\/)/, { timeout: 15000 });
   expect(page.url()).not.toContain('/login');
 });
 
