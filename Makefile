@@ -123,12 +123,15 @@ e2e-docker-build:
 	$(DC) --profile e2e build e2e
 
 e2e-docker-api:
+	$(DC) up -d backend
 	$(DC) --profile e2e run --rm e2e
 
 e2e-docker-browser:
+	$(DC) up -d frontend
 	$(DC) --profile e2e run --rm e2e npx playwright test --project=browser
 
 e2e-docker-all:
+	$(DC) up -d frontend
 	$(DC) --profile e2e run --rm e2e npx playwright test
 
 # =============================================================================
