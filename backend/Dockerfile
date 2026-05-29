@@ -10,6 +10,6 @@ FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /build/server .
-COPY config.yaml .
+COPY config.yaml.example config.yaml
 EXPOSE 8000
 CMD ["./server"]
