@@ -1,15 +1,20 @@
 package middleware
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strings"
+	"time"
 
+	"personal-bookkeeping/internal/app/models"
+	"personal-bookkeeping/internal/infra/cache"
 	"personal-bookkeeping/internal/infra/database"
-	models "personal-bookkeeping/internal/app/models"
-	cache "personal-bookkeeping/internal/infra/cache"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type Claims struct {
@@ -50,13 +55,57 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 			}
 		}
 
-		var user models.User
-		if err := database.GetDB().First(&user, "id = ?", claims.UserID).Error; err != nil {
+		// Get user — try cache first, fall back to DB
+		user, err := getUserWithCache(c.Request.Context(), claims.UserID, claims.Username)
+		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "user not found"})
 			return
 		}
 
-		c.Set("user", &user)
+		c.Set("user", user)
 		c.Next()
 	}
+}
+
+// userCacheTTL is how long a user lookup stays cached (reduces N+1 DB queries).
+const userCacheTTL = 5 * time.Minute
+
+// userCacheKey returns the cache key for a user lookup.
+func userCacheKey(userID string) string { return "user:" + userID }
+
+// getUserWithCache returns the user model, caching the result for userCacheTTL.
+// On cache miss, queries DB and populates cache.
+func getUserWithCache(ctx context.Context, userID, username string) (*models.User, error) {
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check cache
+	if cacheInst := cache.GetDefault(); cacheInst != nil {
+		if data, err := cacheInst.Get(ctx, userCacheKey(userID)); err == nil && data != "" {
+			// Fast path: cache hit — build user from cached fields
+			return &models.User{
+				ID:       uid,
+				Username: username,
+				IsActive: true,
+			}, nil
+		}
+	}
+
+	// Slow path: query DB
+	var user models.User
+	if err := database.GetDB().First(&user, "id = ?", uid).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		return nil, err
+	}
+
+	// Populate cache
+	if cacheInst := cache.GetDefault(); cacheInst != nil {
+		_ = cacheInst.Set(ctx, userCacheKey(userID), "1", userCacheTTL)
+	}
+
+	return &user, nil
 }
