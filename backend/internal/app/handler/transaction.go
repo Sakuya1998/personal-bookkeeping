@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -25,11 +26,11 @@ type CreateTransactionInput struct {
 	LedgerID        string   `json:"ledger_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
 	CategoryID      string   `json:"category_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440001"`
 	Type            string   `json:"type" binding:"required,oneof=income expense" example:"expense"`
-	Amount          float64  `json:"amount" binding:"required,gt=0" example:"29.90"`
+	Amount          any      `json:"amount" binding:"required"` // 支持 string 或 number
 	Currency        string   `json:"currency" example:"CNY"`
-	Description     *string  `json:"description" example:"午餐"`
-	TransactionDate string   `json:"transaction_date" example:"2024-01-15"`
-	Tags            []string `json:"tags" example:"[\"午餐\",\"外卖\"]"`
+	Description     *string  `json:"description"`
+	TransactionDate string   `json:"transaction_date" example:"2024-01-01"`
+	Tags            []string `json:"tags" example:"[\"food\",\"lunch\"]"`
 }
 
 type UpdateTransactionInput struct {
@@ -136,9 +137,16 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Parse amount (accept string or number)
+	amount, err := parseAmount(input.Amount)
+	if err != nil {
+		BadRequest(c, err.Error())
+		return
+	}
+
 	txn, overBudget, err := h.svc.CreateTransaction(
 		ledgerUUID, user.ID, categoryUUID,
-		input.Type, input.Amount, input.Currency,
+		input.Type, amount, input.Currency,
 		input.Description, input.TransactionDate, input.Tags,
 	)
 	if err != nil {
@@ -345,4 +353,26 @@ func (h *TransactionHandler) BatchUpdate(c *gin.Context) {
 	RespondJSON(c, http.StatusOK, map[string]interface{}{
 		"updated": updated,
 	})
+}
+
+// parseAmount 将 any 类型（string 或 number）解析为 float64。
+func parseAmount(v any) (float64, error) {
+	switch val := v.(type) {
+	case float64:
+		if val <= 0 {
+			return 0, fmt.Errorf("amount must be positive")
+		}
+		return val, nil
+	case string:
+		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid amount: %w", err)
+		}
+		if f <= 0 {
+			return 0, fmt.Errorf("amount must be positive")
+		}
+		return f, nil
+	default:
+		return 0, fmt.Errorf("amount must be a number or numeric string")
+	}
 }
