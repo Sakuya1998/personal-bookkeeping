@@ -1,8 +1,12 @@
 # API 接口设计
 
-> 文档版本: v3.0 | 最后更新: 2026-05-27
+> 文档版本: v3.1 | 最后更新: 2026-05-29
 > 基础路径: `/api/v1`
 > 数据格式: JSON
+
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| v3.1 | 2026-05-29 | 交易/预算/周期性规则的 `amount` 字段接受 string 或 number 格式 |
 
 ---
 
@@ -577,7 +581,7 @@ Token 通过 `POST /auth/login` 或 `POST /auth/register` 获取。
 | ledger_id | string | 是 | UUID |
 | category_id | string | 是 | UUID |
 | type | string | 是 | "income" 或 "expense" |
-| amount | number | 是 | 大于 0 |
+| amount | number \| string | 是 | 大于 0，也接受 `"35.00"` 字符串格式 |
 | currency | string | 否 | 默认 "CNY" |
 | description | string | 否 | 文本 |
 | transaction_date | string | 否 | 默认当天 |
@@ -945,7 +949,7 @@ Token 通过 `POST /auth/login` 或 `POST /auth/register` 获取。
 | ledger_id | string | 是 | UUID |
 | category_id | string | 是 | UUID |
 | type | string | 是 | "income" 或 "expense" |
-| amount | number | 是 | 大于 0 |
+| amount | number \| string | 是 | 大于 0，也接受 `"35.00"` 字符串格式 |
 | currency | string | 否 | 默认 "CNY" |
 | frequency | string | 是 | daily/weekly/monthly/yearly |
 | interval | int | 否 | 默认 1 |
@@ -1008,7 +1012,7 @@ Token 通过 `POST /auth/login` 或 `POST /auth/register` 获取。
 | ledger_id | string | 是 | UUID |
 | category_id | string | 否 | null = 全局预算 |
 | month | string | 是 | YYYY-MM 格式 |
-| amount | number | 是 | 大于 0 |
+| amount | number \| string | 是 | 大于 0，也接受 `"35.00"` 字符串格式 |
 
 **响应**: 201 (新建) / 200 (更新)
 
