@@ -150,8 +150,10 @@ docs/                    # 文档
 ## 文档
 
 - [架构设计](docs/architecture.md)
+- [产品规划 v1](docs/product-plan-v1.md)
+- [产品规划 v2](docs/product-plan-v2.md)
+- [产品规划 v3](docs/product-plan-v3.md)
 - [API 设计](docs/api-design.md)
-- [产品规划](docs/product-plan-v1.md)
 - [路线图](docs/roadmap.md)
 - [测试计划](docs/test-plan.md)
 - [用户流程](docs/ux-flows.md)
