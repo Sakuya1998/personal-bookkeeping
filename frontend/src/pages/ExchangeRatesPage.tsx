@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Popconfirm, message, Skeleton, Empty } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Button, Popconfirm, Select, DatePicker, Input, message, Skeleton, Empty } from 'antd';
+import { SyncOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse, ExchangeRate } from '../api/types';
@@ -13,8 +13,7 @@ import ContentCard from '../components/layout/ContentCard';
 const ExchangeRatesPage: React.FC = () => {
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [loading, setLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form] = Form.useForm();
+  const [syncing, setSyncing] = useState(false);
 
   const [filters, setFilters] = useState<{
     from_currency: string;
@@ -37,19 +36,17 @@ const ExchangeRatesPage: React.FC = () => {
     loadRates().catch(err => console.error('获取汇率失败:', err));
   }, [loadRates]);
 
-  const handleSubmit = async (values: Record<string, unknown>) => {
+  const handleSync = async () => {
+    setSyncing(true);
     try {
-      await client.post('/exchange-rates', {
-        ...values,
-        date: (values.date as dayjs.Dayjs).format('YYYY-MM-DD'),
-      });
-      message.success('保存成功');
-      setModalOpen(false);
-      form.resetFields();
+      await client.post('/exchange-rates/sync');
+      message.success('汇率同步成功');
       loadRates();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '操作失败');
+      message.error(apiErr.response?.data?.message || '同步失败');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -139,10 +136,11 @@ const ExchangeRatesPage: React.FC = () => {
           right={(
             <Button
               type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => { form.resetFields(); form.setFieldsValue({ date: dayjs() }); setModalOpen(true); }}
+              icon={<SyncOutlined />}
+              loading={syncing}
+              onClick={handleSync}
             >
-              新增汇率
+              手动同步
             </Button>
           )}
         />
@@ -157,26 +155,6 @@ const ExchangeRatesPage: React.FC = () => {
           <Table dataSource={filteredRates} columns={columns} rowKey="id" size="small" pagination={{ pageSize: 50 }} />
         )}
       </ContentCard>
-
-      <Modal title="新增汇率" open={modalOpen} onOk={form.submit} onCancel={() => setModalOpen(false)}>
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item name="from_currency" label="源币种" rules={[{ required: true }]}>
-            <Select options={currencyOpts} />
-          </Form.Item>
-          <Form.Item name="to_currency" label="目标币种" rules={[{ required: true }]}>
-            <Select options={currencyOpts} />
-          </Form.Item>
-          <Form.Item name="rate" label="汇率" rules={[{ required: true }]}>
-            <InputNumber step="0.000001" min="0.000001" style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="date" label="日期" rules={[{ required: true }]}>
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="source" label="来源">
-            <Input placeholder="例如：手动录入" />
-          </Form.Item>
-        </Form>
-      </Modal>
     </PageLayout>
   );
 };
