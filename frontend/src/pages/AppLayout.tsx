@@ -9,8 +9,20 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import client from '../api/client';
 import { ApiResponse, Ledger, User } from '../api/types';
 import { useAppStore } from '../store/appStore';
+import Brand from '../components/layout/Brand';
 
 const { Header, Sider, Content } = Layout;
+
+const routeTitleMap: Record<string, string> = {
+  '/': '仪表盘',
+  '/transactions': '交易记录',
+  '/ledgers': '账本管理',
+  '/categories': '分类管理',
+  '/exchange-rates': '汇率管理',
+  '/recurring': '周期规则',
+  '/budgets': '预算管理',
+  '/settings': '设置',
+};
 
 const AppLayout: React.FC = () => {
   const user = useAppStore(s => s.user);
@@ -24,6 +36,12 @@ const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const pageTitle = routeTitleMap[location.pathname]
+    || Object.entries(routeTitleMap).find(([path]) => path !== '/' && location.pathname.startsWith(path))?.[1]
+    || '个人记账';
+
+  const contentHandlesOwnLayout = location.pathname === '/' || location.pathname.startsWith('/transactions');
 
   useEffect(() => {
     if (!token) { navigate('/login'); return; }
@@ -67,9 +85,7 @@ const AppLayout: React.FC = () => {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider trigger={null} collapsible collapsed={collapsed} breakpoint="lg" onBreakpoint={(broken) => setCollapsed(broken)}>
-        <div style={{ height: 32, margin: 16, color: '#fff', fontWeight: 'bold', fontSize: collapsed ? 14 : 18, textAlign: 'center' }}>
-          {collapsed ? '📒' : '📒 记账'}
-        </div>
+        <Brand collapsed={collapsed} />
         <Menu
           theme="dark"
           mode="inline"
@@ -80,11 +96,14 @@ const AppLayout: React.FC = () => {
       </Sider>
       <Layout>
         <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0' }}>
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+            />
+            <div style={{ fontSize: 16, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pageTitle}</div>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             {ledgers.length > 0 && (
               <Select
@@ -100,8 +119,12 @@ const AppLayout: React.FC = () => {
             </Dropdown>
           </div>
         </Header>
-        <Content style={{ margin: 24 }}>
-          <Outlet />
+        <Content style={{ padding: 0 }}>
+          {contentHandlesOwnLayout ? <Outlet /> : (
+            <div className="ui-page">
+              <Outlet />
+            </div>
+          )}
         </Content>
       </Layout>
     </Layout>
