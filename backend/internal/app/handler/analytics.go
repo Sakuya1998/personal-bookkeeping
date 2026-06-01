@@ -109,6 +109,37 @@ func (h *LedgerHandler) CategoryBreakdown(c *gin.Context) {
 	RespondJSON(c, http.StatusOK, items)
 }
 
+// TagStats  godoc
+// @Summary      标签使用统计
+// @Tags         analytics
+// @Produce      json
+// @Security     BearerAuth
+// @Param        ledger_id  path string true "账本 ID"
+// @Param        start_date query string false "开始日期 2006-01-02"
+// @Param        end_date   query string false "结束日期 2006-01-02"
+// @Success      200 {object} Response{data=[]service.TagStatsItem}
+// @Router       /ledgers/{ledger_id}/tag-stats [get]
+func (h *LedgerHandler) TagStats(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+	ledgerID := c.Param("ledger_id")
+
+	lid, err := uuid.Parse(ledgerID)
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
+		return
+	}
+
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	items, err := h.svc.TagStats(lid, user.ID, startDate, endDate)
+	if err != nil {
+		InternalError(c, "failed to query tag stats")
+		return
+	}
+	RespondJSON(c, http.StatusOK, items)
+}
+
 // DailyTransactions  godoc
 // @Summary      日历视图 — 每日交易汇总
 // @Tags         analytics

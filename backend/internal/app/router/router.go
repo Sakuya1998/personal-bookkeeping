@@ -92,6 +92,7 @@ func Setup(r *gin.Engine, cfg *config.Config) {
 		protected.GET("/ledgers/:ledger_id/monthly-trend", ledger.MonthlyTrend)
 		protected.GET("/ledgers/:ledger_id/category-breakdown", ledger.CategoryBreakdown)
 		protected.GET("/ledgers/:ledger_id/daily-transactions", ledger.DailyTransactions)
+		protected.GET("/ledgers/:ledger_id/tag-stats", ledger.TagStats)
 		protected.GET("/ledgers/:ledger_id/export", ledger.Export)
 		protected.GET("/ledgers/:ledger_id/tags", ledger.Tags)
 

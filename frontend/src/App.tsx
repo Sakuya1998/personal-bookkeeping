@@ -18,6 +18,7 @@ const ExchangeRatesPage = React.lazy(() => import('./pages/ExchangeRatesPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const RecurringPage = React.lazy(() => import('./pages/RecurringPage'));
 const BudgetPage = React.lazy(() => import('./pages/BudgetPage'));
+const TagStatsPage = React.lazy(() => import('./pages/TagStatsPage'));
 
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const CalendarViewPage = React.lazy(() => import('./pages/CalendarViewPage'));
@@ -55,6 +56,7 @@ const App: React.FC = () => {
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="recurring" element={<RecurringPage />} />
                   <Route path="budgets" element={<BudgetPage />} />
+                  <Route path="tag-stats" element={<TagStatsPage />} />
                   <Route path="ledgers/:ledger_id/calendar" element={<CalendarViewPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

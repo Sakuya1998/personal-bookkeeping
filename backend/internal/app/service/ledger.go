@@ -54,6 +54,15 @@ type CategoryBreakdownItem struct {
 	Percentage   float64   `json:"percentage"`
 }
 
+// TagStatsItem 标签统计单项。
+type TagStatsItem struct {
+	Tag              string  `json:"tag"`
+	TotalExpense     float64 `json:"total_expense"`
+	TotalIncome      float64 `json:"total_income"`
+	TransactionCount int64   `json:"transaction_count"`
+	Percentage       float64 `json:"percentage"`
+}
+
 // DailyTransactionItem 每日交易汇总单项。
 type DailyTransactionItem struct {
 	Date    string  `json:"date" example:"2026-05-01"`
@@ -384,6 +393,63 @@ func (s *LedgerService) CategoryBreakdown(ledgerID, userID uuid.UUID, startDate,
 			Type:         r.Type,
 			Total:        r.Total,
 			Percentage:   pct,
+		})
+	}
+	return items, nil
+}
+
+// TagStats 获取账本内各标签的收支统计。
+// 支持可选的时间范围筛选。百分比基于总支出+总收入计算。
+func (s *LedgerService) TagStats(ledgerID, userID uuid.UUID, startDate, endDate string) ([]TagStatsItem, error) {
+	type row struct {
+		Tag              string
+		TotalExpense     float64
+		TotalIncome      float64
+		TransactionCount int64
+	}
+
+	query := s.DB.Table("transactions").
+		Select(`
+			TRIM(t.tag) AS tag,
+			COALESCE(SUM(CASE WHEN transactions.type = 'expense' THEN transactions.base_amount ELSE 0 END), 0) AS total_expense,
+			COALESCE(SUM(CASE WHEN transactions.type = 'income' THEN transactions.base_amount ELSE 0 END), 0) AS total_income,
+			COUNT(*) AS transaction_count
+		`).
+		Joins("CROSS JOIN LATERAL unnest(string_to_array(transactions.tags, ',')) AS t(tag)").
+		Where("transactions.ledger_id = ? AND transactions.user_id = ?", ledgerID, userID).
+		Where("transactions.tags IS NOT NULL AND transactions.tags <> ''")
+
+	if startDate != "" {
+		query = query.Where("transactions.transaction_date >= ?", startDate)
+	}
+	if endDate != "" {
+		query = query.Where("transactions.transaction_date <= ?", endDate)
+	}
+
+	var rows []row
+	query = query.Group("TRIM(t.tag)").Order("total_expense DESC")
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, fmt.Errorf("failed to query tag stats: %w", err)
+	}
+
+	// Calculate grand total for percentages
+	var grandTotal float64
+	for _, r := range rows {
+		grandTotal += r.TotalExpense + r.TotalIncome
+	}
+
+	items := make([]TagStatsItem, 0, len(rows))
+	for _, r := range rows {
+		pct := 0.0
+		if grandTotal > 0 {
+			pct = r.TotalExpense / grandTotal * 100
+		}
+		items = append(items, TagStatsItem{
+			Tag:              r.Tag,
+			TotalExpense:     r.TotalExpense,
+			TotalIncome:      r.TotalIncome,
+			TransactionCount: r.TransactionCount,
+			Percentage:       pct,
 		})
 	}
 	return items, nil

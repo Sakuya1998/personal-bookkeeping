@@ -3,7 +3,7 @@ import { Layout, Menu, Select, Button, Dropdown } from 'antd';
 import {
   DashboardOutlined, WalletOutlined, TransactionOutlined, AppstoreOutlined,
   DollarOutlined, SettingOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
-  SyncOutlined, FundOutlined,
+  SyncOutlined, FundOutlined, TagsOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import client from '../api/client';
@@ -20,6 +20,7 @@ const routeTitleMap: Record<string, string> = {
   '/categories': '分类管理',
   '/exchange-rates': '汇率管理',
   '/recurring': '周期规则',
+  '/tag-stats': '标签统计',
   '/budgets': '预算管理',
   '/settings': '设置',
 };
@@ -69,6 +70,7 @@ const AppLayout: React.FC = () => {
     { key: '/exchange-rates', icon: <DollarOutlined />, label: '汇率管理' },
     { key: '/recurring', icon: <SyncOutlined />, label: '周期规则' },
     { key: '/budgets', icon: <FundOutlined />, label: '预算管理' },
+    { key: '/tag-stats', icon: <TagsOutlined />, label: '标签统计' },
     { key: '/settings', icon: <SettingOutlined />, label: '设置' },
   ];
 
