@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ExchangeRateAPI response from exchangerate-api.com
@@ -133,6 +134,7 @@ func storeRates(db *gorm.DB, base string, rates map[string]float64, date, source
 
 	now := time.Now()
 	created := 0
+	updated := 0
 	sourceStr := source
 
 	for currency, rate := range rates {
@@ -143,7 +145,7 @@ func storeRates(db *gorm.DB, base string, rates map[string]float64, date, source
 			continue
 		}
 
-		// Store both directions
+		// Store both directions via upsert
 		pairs := []struct {
 			from, to string
 			r        float64
@@ -153,16 +155,15 @@ func storeRates(db *gorm.DB, base string, rates map[string]float64, date, source
 		}
 
 		for _, p := range pairs {
-			// Check if this rate already exists for today
-			var existing int64
-			db.Model(&models.ExchangeRate{}).
-				Where("from_currency = ? AND to_currency = ? AND date = ?", p.from, p.to, date).
-				Count(&existing)
-			if existing > 0 {
-				continue
-			}
-
-			record := models.ExchangeRate{
+			err := db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "from_currency"}, {Name: "to_currency"}},
+				DoUpdates: clause.Assignments(map[string]interface{}{
+					"rate":       p.r,
+					"date":       date,
+					"source":     sourceStr,
+					"updated_at": now,
+				}),
+			}).Create(&models.ExchangeRate{
 				ID:           uuid.New(),
 				FromCurrency: p.from,
 				ToCurrency:   p.to,
@@ -170,15 +171,20 @@ func storeRates(db *gorm.DB, base string, rates map[string]float64, date, source
 				Date:         date,
 				Source:       &sourceStr,
 				CreatedAt:    now,
-			}
-			if err := db.Create(&record).Error; err != nil {
+				UpdatedAt:    now,
+			}).Error
+			if err != nil {
 				slog.Warn("store rate failed", "from", p.from, "to", p.to, "error", err)
 				continue
 			}
-			created++
+			if db.RowsAffected == 1 {
+				created++
+			} else {
+				updated++
+			}
 		}
 	}
 
-	slog.Info("exchange rates updated", "base", base, "currencies", len(rates), "created", created, "source", source)
+	slog.Info("exchange rates updated", "base", base, "currencies", len(rates), "created", created, "updated", updated, "source", source)
 	return nil
 }
