@@ -4,13 +4,16 @@ import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import client from '../api/client';
 import { ApiResponse, AuthResponse } from '../api/types';
 import { useAppStore } from '../store/appStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const LoginPage: React.FC = () => {
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
   const { setToken, setUser } = useAppStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const next = searchParams.get('next') || '/';
+  const safeNext = next.startsWith('/') ? next : '/';
 
   const onLogin = async (values: { username: string; password: string }) => {
     setLoading(true);
@@ -19,7 +22,7 @@ const LoginPage: React.FC = () => {
       setToken(res.data.data.token);
       setUser(res.data.data.user);
       message.success('登录成功');
-      navigate('/');
+      navigate(safeNext, { replace: true });
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || '登录失败');
@@ -35,7 +38,7 @@ const LoginPage: React.FC = () => {
       setToken(res.data.data.token);
       setUser(res.data.data.user);
       message.success('注册成功');
-      navigate('/');
+      navigate(safeNext, { replace: true });
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || '注册失败');

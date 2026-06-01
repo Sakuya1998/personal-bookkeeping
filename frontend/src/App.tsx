@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { useAppStore } from './store/appStore';
 import ErrorBoundary from './components/ErrorBoundary';
+import AuthEventBridge from './components/AuthEventBridge';
 import AppLayout from './pages/AppLayout';
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const TransactionsPage = React.lazy(() => import('./pages/TransactionsPage'));
@@ -39,6 +40,7 @@ const App: React.FC = () => {
     <ConfigProvider locale={zhCN}>
       <AntApp>
         <BrowserRouter>
+          <AuthEventBridge />
           <ErrorBoundary>
             <Suspense fallback={<PageLoading />}>
               <Routes>
