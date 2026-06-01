@@ -192,6 +192,15 @@
     "addExpense": "新建支出分类",
     "addIncome": "新建收入分类"
   },
+  "currencyGroup": {
+    "major": "主要货币",
+    "asia": "亚洲",
+    "europe": "欧洲",
+    "americas": "美洲",
+    "middleEast": "中东 / 中亚",
+    "africa": "非洲",
+    "oceania": "大洋洲 / 太平洋"
+  },
   "exchangeRates": {
     "title": "汇率管理",
     "sync": "手动同步",

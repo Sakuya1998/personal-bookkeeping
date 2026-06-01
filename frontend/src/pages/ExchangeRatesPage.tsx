@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse, ExchangeRate } from '../api/types';
-import { CURRENCIES } from '../utils/currency';
+import CurrencySelect from '../components/CurrencySelect';
 import PageLayout from '../components/layout/PageLayout';
 import PageTitle from '../components/layout/PageTitle';
 import PageToolbar from '../components/layout/PageToolbar';
@@ -63,8 +63,6 @@ const ExchangeRatesPage: React.FC = () => {
     }
   };
 
-  const currencyOpts = CURRENCIES.map(c => ({ label: `${c.symbol} ${c.code}`, value: c.code }));
-
   const filteredRates = useMemo(() => {
     const kw = filters.source.trim().toLowerCase();
     return rates.filter((r) => {
@@ -105,20 +103,18 @@ const ExchangeRatesPage: React.FC = () => {
         <PageToolbar
           left={(
             <>
-              <Select
+              <CurrencySelect
                 allowClear
                 placeholder={t('exchangeRates.fromCurrency')}
                 style={{ width: 140 }}
                 value={filters.from_currency || undefined}
-                options={currencyOpts}
                 onChange={(v) => setFilters(p => ({ ...p, from_currency: v || '' }))}
               />
-              <Select
+              <CurrencySelect
                 allowClear
                 placeholder={t('exchangeRates.toCurrency')}
                 style={{ width: 140 }}
                 value={filters.to_currency || undefined}
-                options={currencyOpts}
                 onChange={(v) => setFilters(p => ({ ...p, to_currency: v || '' }))}
               />
               <DatePicker.RangePicker

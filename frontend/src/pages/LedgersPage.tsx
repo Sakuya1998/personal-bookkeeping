@@ -10,6 +10,7 @@ import PageLayout from '../components/layout/PageLayout';
 import PageTitle from '../components/layout/PageTitle';
 import PageToolbar from '../components/layout/PageToolbar';
 import ContentCard from '../components/layout/ContentCard';
+import CurrencySelect from '../components/CurrencySelect';
 
 const LedgersPage: React.FC = () => {
   const { t } = useTranslation();
@@ -143,7 +144,7 @@ const LedgersPage: React.FC = () => {
             <Input.TextArea rows={2} />
           </Form.Item>
           <Form.Item name="base_currency" label={t('ledgers.baseCurrency')}>
-            <Select options={CURRENCIES.map(c => ({ label: `${c.symbol} ${c.code} - ${c.name}`, value: c.code }))} />
+            <CurrencySelect style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="icon" label={t('ledgers.icon')}>
             <Input placeholder="💰" />

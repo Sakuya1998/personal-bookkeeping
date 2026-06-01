@@ -192,6 +192,15 @@
     "addExpense": "New Expense Category",
     "addIncome": "New Income Category"
   },
+  "currencyGroup": {
+    "major": "Major Currencies",
+    "asia": "Asia",
+    "europe": "Europe",
+    "americas": "Americas",
+    "middleEast": "Middle East / Central Asia",
+    "africa": "Africa",
+    "oceania": "Oceania / Pacific"
+  },
   "exchangeRates": {
     "title": "Exchange Rates",
     "sync": "Sync Now",

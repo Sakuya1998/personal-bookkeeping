@@ -14,6 +14,7 @@ import PageLayout from '../components/layout/PageLayout';
 import PageTitle from '../components/layout/PageTitle';
 import PageToolbar from '../components/layout/PageToolbar';
 import ContentCard from '../components/layout/ContentCard';
+import CurrencySelect from '../components/CurrencySelect';
 
 const RecurringPage: React.FC = () => {
   const { t } = useTranslation();
@@ -243,7 +244,7 @@ const RecurringPage: React.FC = () => {
           </Form.Item>
 
           <Form.Item name="currency" label={t('transactions.currency')}>
-            <Select options={CURRENCIES.map((c) => ({ label: `${c.symbol} ${c.code}`, value: c.code }))} />
+            <CurrencySelect style={{ width: '100%' }} />
           </Form.Item>
 
           <Form.Item name="description" label={t('transactions.description')}>

@@ -10,6 +10,7 @@ import { CURRENCIES, formatCurrency } from '../utils/currency';
 import PageLayout from '../components/layout/PageLayout';
 import PageTitle from '../components/layout/PageTitle';
 import PageToolbar from '../components/layout/PageToolbar';
+import CurrencySelect from '../components/CurrencySelect';
 
 const TransactionsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -356,7 +357,7 @@ const TransactionsPage: React.FC = () => {
             <InputNumber step={0.01} min={0.01} prefix="¥" style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="currency" label={t('transactions.currency')}>
-            <Select options={CURRENCIES.map(c => ({ label: `${c.symbol} ${c.code}`, value: c.code }))} />
+            <CurrencySelect style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="description" label={t('transactions.description')}>
             <Input.TextArea rows={2} />

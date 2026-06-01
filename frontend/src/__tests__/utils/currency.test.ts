@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatCurrency, getCurrencySymbol } from '../../utils/currency';
+import { formatCurrency, getCurrencySymbol, getGroupedCurrencies, getAllCurrencyCodes } from '../../utils/currency';
 
 describe('formatCurrency', () => {
   it('formats CNY with 2 decimal places', () => {
@@ -50,5 +50,43 @@ describe('getCurrencySymbol', () => {
 
   it('returns the code itself for empty string', () => {
     expect(getCurrencySymbol('')).toBe('');
+  });
+});
+
+describe('getAllCurrencyCodes', () => {
+  it('returns all currency codes', () => {
+    const codes = getAllCurrencyCodes();
+    expect(codes).toContain('CNY');
+    expect(codes).toContain('USD');
+    expect(codes).toContain('EUR');
+    expect(codes.length).toBeGreaterThan(100);
+  });
+});
+
+describe('getGroupedCurrencies', () => {
+  it('returns all groups with currencies', () => {
+    const groups = getGroupedCurrencies();
+    const groupLabels = groups.map(g => g.label);
+    expect(groupLabels).toContain('major');
+    expect(groupLabels).toContain('asia');
+    expect(groupLabels).toContain('europe');
+    expect(groups.length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('each group has at least one option', () => {
+    const groups = getGroupedCurrencies();
+    for (const g of groups) {
+      expect(g.options.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('major group contains CNY, USD, EUR', () => {
+    const groups = getGroupedCurrencies();
+    const major = groups.find(g => g.label === 'major');
+    expect(major).toBeDefined();
+    const codes = major!.options.map(o => o.value);
+    expect(codes).toContain('CNY');
+    expect(codes).toContain('USD');
+    expect(codes).toContain('EUR');
   });
 });
