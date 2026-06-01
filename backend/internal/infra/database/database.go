@@ -13,8 +13,8 @@ import (
 
 var DB *gorm.DB
 
-// Init 连接数据库并创建性能索引。
-// 注意：AutoMigrate 由 main.go 在 Init 之后调用（app 层负责传递模型）。
+// Init 连接数据库。
+// 注意：AutoMigrate 和 createIndexes 由 main.go 在 Init 之后调用。
 func Init(cfg *config.Config) {
 	var err error
 	DB, err = gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{
@@ -24,9 +24,6 @@ func Init(cfg *config.Config) {
 		slog.Error("failed to connect database", "error", err)
 		return
 	}
-
-	// Ensure performance indexes
-	createIndexes(DB)
 
 	slog.Info("database connected successfully")
 }
@@ -44,13 +41,17 @@ func AutoMigrate(models ...interface{}) {
 	slog.Info("database migrated successfully")
 }
 
-func createIndexes(db *gorm.DB) {
+func CreateIndexes() {
+	if DB == nil {
+		slog.Warn("database not initialized, skipping index creation")
+		return
+	}
 	indexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_transactions_ledger_user_date ON transactions (ledger_id, user_id, transaction_date)`,
 		`CREATE INDEX IF NOT EXISTS idx_transactions_user_type ON transactions (user_id, type)`,
 	}
 	for _, idx := range indexes {
-		if err := db.Exec(idx).Error; err != nil {
+		if err := DB.Exec(idx).Error; err != nil {
 			slog.Warn("failed to create index", "error", err)
 		}
 	}

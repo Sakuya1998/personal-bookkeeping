@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 
 	"personal-bookkeeping/internal/app/service"
@@ -58,6 +59,12 @@ func (h *ExchangeRateHandler) Sync(c *gin.Context) {
 	}
 
 	if err := service.UpdateExchangeRates(database.GetDB(), &cfg.ExchangeRate); err != nil {
+		slog.Error("exchange rate sync failed",
+			"error", err,
+			"provider", cfg.ExchangeRate.Provider,
+			"base", cfg.ExchangeRate.Base,
+			"has_api_key", cfg.ExchangeRate.APIKey != "",
+		)
 		InternalError(c, "sync failed: "+err.Error())
 		return
 	}

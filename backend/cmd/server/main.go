@@ -136,6 +136,9 @@ func main() {
 		&models.Budget{},
 	)
 
+	// Create performance indexes after tables exist
+	database.CreateIndexes()
+
 	// Initialize exchange rate provider with DI-injected DB and cache
 	service.InitExchangeRateProvider(database.GetDB(), cch)
 

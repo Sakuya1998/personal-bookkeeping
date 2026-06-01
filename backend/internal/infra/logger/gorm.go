@@ -20,7 +20,7 @@ type SlogLogger struct {
 func NewSlogLogger(level logger.LogLevel) *SlogLogger {
 	return &SlogLogger{
 		logLevel:                   level,
-		ignoreRecordNotFoundError:  false,
+		ignoreRecordNotFoundError:  true,
 		slowThreshold:              200 * time.Millisecond,
 	}
 }
