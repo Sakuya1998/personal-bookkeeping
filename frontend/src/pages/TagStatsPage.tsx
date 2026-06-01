@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Table, DatePicker, Button, Skeleton, Empty, Statistic, Row, Col, message } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse } from '../api/types';
@@ -19,6 +20,7 @@ interface TagStatsItem {
 }
 
 const TagStatsPage: React.FC = () => {
+  const { t } = useTranslation();
   const currentLedger = useAppStore(s => s.currentLedger);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<TagStatsItem[]>([]);
@@ -35,11 +37,11 @@ const TagStatsPage: React.FC = () => {
       setItems(res.data.data);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '获取标签统计失败');
+      message.error(apiErr.response?.data?.message || t('common.failed'));
     } finally {
       setLoading(false);
     }
-  }, [currentLedger]);
+  }, [currentLedger, t]);
 
   useEffect(() => {
     if (currentLedger) loadStats();
@@ -56,23 +58,23 @@ const TagStatsPage: React.FC = () => {
   const totalTxn = items.reduce((s, i) => s + i.transaction_count, 0);
 
   const columns = [
-    { title: '标签', dataIndex: 'tag', key: 'tag', width: 160 },
+    { title: t('tagStats.tag'), dataIndex: 'tag', key: 'tag', width: 160 },
     {
-      title: <div style={{ textAlign: 'right' }}>支出</div>,
+      title: <div style={{ textAlign: 'right' }}>{t('tagStats.expense')}</div>,
       dataIndex: 'total_expense', key: 'expense', align: 'right' as const, width: 160,
       render: (v: number) => v.toFixed(2),
     },
     {
-      title: <div style={{ textAlign: 'right' }}>收入</div>,
+      title: <div style={{ textAlign: 'right' }}>{t('tagStats.income')}</div>,
       dataIndex: 'total_income', key: 'income', align: 'right' as const, width: 160,
       render: (v: number) => v.toFixed(2),
     },
     {
-      title: <div style={{ textAlign: 'right' }}>交易笔数</div>,
+      title: <div style={{ textAlign: 'right' }}>{t('tagStats.count')}</div>,
       dataIndex: 'transaction_count', key: 'count', align: 'right' as const, width: 100,
     },
     {
-      title: <div style={{ textAlign: 'right' }}>占比</div>,
+      title: <div style={{ textAlign: 'right' }}>{t('tagStats.percentage')}</div>,
       dataIndex: 'percentage', key: 'pct', align: 'right' as const, width: 100,
       render: (v: number) => `${v.toFixed(1)}%`,
     },
@@ -80,7 +82,7 @@ const TagStatsPage: React.FC = () => {
 
   return (
     <PageLayout
-      header={<PageTitle title="标签统计" />}
+      header={<PageTitle title={t('tagStats.title')} />}
       toolbar={(
         <PageToolbar
           left={(
@@ -92,7 +94,7 @@ const TagStatsPage: React.FC = () => {
           )}
           right={(
             <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-              查询
+              {t('common.search')}
             </Button>
           )}
         />
@@ -101,16 +103,16 @@ const TagStatsPage: React.FC = () => {
       <ContentCard>
         {items.length > 0 && (
           <Row gutter={16} style={{ marginBottom: 24 }}>
-            <Col span={6}><Statistic title="总支出" value={totalExpense} precision={2} prefix="¥" /></Col>
-            <Col span={6}><Statistic title="总收入" value={totalIncome} precision={2} prefix="¥" /></Col>
-            <Col span={6}><Statistic title="标签交易笔数" value={totalTxn} /></Col>
-            <Col span={6}><Statistic title="标签数量" value={items.length} /></Col>
+            <Col span={6}><Statistic title={t('tagStats.totalExpense')} value={totalExpense} precision={2} prefix="¥" /></Col>
+            <Col span={6}><Statistic title={t('tagStats.totalIncome')} value={totalIncome} precision={2} prefix="¥" /></Col>
+            <Col span={6}><Statistic title={t('tagStats.transactionCount')} value={totalTxn} /></Col>
+            <Col span={6}><Statistic title={t('tagStats.tagCount')} value={items.length} /></Col>
           </Row>
         )}
         {loading ? (
           <Skeleton active paragraph={{ rows: 8 }} />
         ) : items.length === 0 ? (
-          <Empty description={dateRange ? '该时间范围内无带标签的交易' : '暂无可统计的标签，请先在交易中为记录添加标签'} />
+          <Empty description={dateRange ? t('tagStats.noTagsInRange') : t('tagStats.noTags')} />
         ) : (
           <Table dataSource={items} columns={columns} rowKey="tag" size="small" pagination={{ pageSize: 50 }} />
         )}

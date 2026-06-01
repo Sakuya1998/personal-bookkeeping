@@ -55,9 +55,9 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'u' } });
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'p' } });
-    fireEvent.click(screen.getByRole('button', { name: /登\s*录/ }));
+    fireEvent.change(screen.getByLabelText('auth.username'), { target: { value: 'u' } });
+    fireEvent.change(screen.getByLabelText('auth.password'), { target: { value: 'p' } });
+    fireEvent.click(screen.getByRole('button', { name: 'auth.login' }));
 
     await waitFor(() => {
       expect(screen.getByText('TX')).toBeInTheDocument();
@@ -80,9 +80,9 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'u' } });
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'p' } });
-    fireEvent.click(screen.getByRole('button', { name: /登\s*录/ }));
+    fireEvent.change(screen.getByLabelText('auth.username'), { target: { value: 'u' } });
+    fireEvent.change(screen.getByLabelText('auth.password'), { target: { value: 'p' } });
+    fireEvent.click(screen.getByRole('button', { name: 'auth.login' }));
 
     await waitFor(() => {
       expect(screen.getByText('HOME')).toBeInTheDocument();

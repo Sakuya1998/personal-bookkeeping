@@ -120,11 +120,11 @@ describe('RecurringPage', () => {
     render(<RecurringPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('周期性交易会自动在指定日期生成记账记录')).toBeInTheDocument();
+      expect(screen.getByText('recurring.pageDescription')).toBeInTheDocument();
     });
 
-    // The "新增规则" button should be visible even during loading
-    expect(screen.getByRole('button', { name: /新增规则/ })).toBeInTheDocument();
+    // The create button should be visible even during loading
+    expect(screen.getByRole('button', { name: /recurring.add/ })).toBeInTheDocument();
   });
 
   it('shows empty state when no rules exist', async () => {
@@ -138,7 +138,7 @@ describe('RecurringPage', () => {
     render(<RecurringPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('暂无周期性规则')).toBeInTheDocument();
+      expect(screen.getByText('recurring.noRules')).toBeInTheDocument();
     });
   });
 
@@ -173,11 +173,11 @@ describe('RecurringPage', () => {
     expect(screen.getByText(/\+¥10000\.00/)).toBeInTheDocument();
 
     // Type tags
-    expect(screen.getByText('支出')).toBeInTheDocument();
-    expect(screen.getByText('收入')).toBeInTheDocument();
+    expect(screen.getByText('transactions.expense')).toBeInTheDocument();
+    expect(screen.getByText('transactions.income')).toBeInTheDocument();
 
     // Status tag — both rules are active so there are two "启用" tags
-    const enabledTags = screen.getAllByText('启用');
+    const enabledTags = screen.getAllByText('recurring.isActive');
     expect(enabledTags.length).toBeGreaterThanOrEqual(2);
 
     // Start dates — both rules have the same start_date
@@ -185,15 +185,15 @@ describe('RecurringPage', () => {
     expect(startDates.length).toBeGreaterThanOrEqual(2);
 
     // No end date => "无" — both rules have no end_date so it appears twice
-    const noEndDates = screen.getAllByText('无');
+    const noEndDates = screen.getAllByText('recurring.noEndDate');
     expect(noEndDates.length).toBeGreaterThanOrEqual(2);
 
     // Frequency display — both rules are monthly
-    const monthlyTags = screen.getAllByText('每月');
+    const monthlyTags = screen.getAllByText('recurring.monthly');
     expect(monthlyTags.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('opens the create modal when the "新增规则" button is clicked', async () => {
+  it('opens the create modal when the create button is clicked', async () => {
     mockGet.mockImplementation((url: string) => {
       if (url.includes('/categories')) {
         return Promise.resolve(makeApiResponse([]));
@@ -204,14 +204,14 @@ describe('RecurringPage', () => {
     render(<RecurringPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('暂无周期性规则')).toBeInTheDocument();
+      expect(screen.getByText('recurring.noRules')).toBeInTheDocument();
     });
 
-    const createBtn = screen.getByRole('button', { name: /新增规则/ });
+    const createBtn = screen.getByRole('button', { name: /recurring.add/ });
     fireEvent.click(createBtn);
 
     await waitFor(() => {
-      expect(screen.getByText('新增周期性规则')).toBeInTheDocument();
+      expect(screen.getAllByText('recurring.add').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -227,22 +227,22 @@ describe('RecurringPage', () => {
     render(<RecurringPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('暂无周期性规则')).toBeInTheDocument();
+      expect(screen.getByText('recurring.noRules')).toBeInTheDocument();
     });
 
     // Open create modal
-    fireEvent.click(screen.getByRole('button', { name: /新增规则/ }));
+    fireEvent.click(screen.getByRole('button', { name: /recurring.add/ }));
 
     await waitFor(() => {
-      expect(screen.getByText('新增周期性规则')).toBeInTheDocument();
+      expect(screen.getAllByText('recurring.add').length).toBeGreaterThanOrEqual(1);
     });
 
     // Verify the form contains expected fields
-    expect(screen.getByText('类型')).toBeInTheDocument();
-    expect(screen.getByText('金额')).toBeInTheDocument();
-    expect(screen.getByText('分类')).toBeInTheDocument();
-    expect(screen.getByText('频率')).toBeInTheDocument();
-    expect(screen.getByText('开始日期')).toBeInTheDocument();
+    expect(screen.getByText('transactions.type')).toBeInTheDocument();
+    expect(screen.getByText('transactions.amount')).toBeInTheDocument();
+    expect(screen.getByText('transactions.category')).toBeInTheDocument();
+    expect(screen.getByText('recurring.frequency')).toBeInTheDocument();
+    expect(screen.getByText('recurring.startDate')).toBeInTheDocument();
   });
 
   it('opens edit modal and calls client.put when editing', async () => {
@@ -271,7 +271,7 @@ describe('RecurringPage', () => {
 
     // Modal should show edit title
     await waitFor(() => {
-      expect(screen.getByText('编辑周期性规则')).toBeInTheDocument();
+      expect(screen.getByText('recurring.edit')).toBeInTheDocument();
     });
 
     // Submit the form via OK button
@@ -306,7 +306,7 @@ describe('RecurringPage', () => {
 
     // Popconfirm should show
     await waitFor(() => {
-      expect(screen.getByText('确定删除？')).toBeInTheDocument();
+      expect(screen.getByText('recurring.deleteConfirm')).toBeInTheDocument();
     });
 
     // Confirm — antd Popconfirm uses "OK" in English locale (jsdom)

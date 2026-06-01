@@ -10,22 +10,12 @@ import client from '../api/client';
 import { ApiResponse, Ledger, User } from '../api/types';
 import { useAppStore } from '../store/appStore';
 import Brand from '../components/layout/Brand';
+import { useTranslation } from 'react-i18next';
 
 const { Header, Sider, Content } = Layout;
 
-const routeTitleMap: Record<string, string> = {
-  '/': '仪表盘',
-  '/transactions': '交易记录',
-  '/ledgers': '账本管理',
-  '/categories': '分类管理',
-  '/exchange-rates': '汇率管理',
-  '/recurring': '周期规则',
-  '/tag-stats': '标签统计',
-  '/budgets': '预算管理',
-  '/settings': '设置',
-};
-
 const AppLayout: React.FC = () => {
+  const { t } = useTranslation();
   const user = useAppStore(s => s.user);
   const token = useAppStore(s => s.token);
   const ledgers = useAppStore(s => s.ledgers);
@@ -40,11 +30,23 @@ const AppLayout: React.FC = () => {
 
   const isCalendarView = /^\/ledgers\/[^/]+\/calendar$/.test(location.pathname);
 
+  const routeTitleMap: Record<string, string> = {
+    '/': t('nav.dashboard'),
+    '/transactions': t('nav.transactions'),
+    '/ledgers': t('nav.ledgers'),
+    '/categories': t('nav.categories'),
+    '/exchange-rates': t('nav.exchangeRates'),
+    '/recurring': t('nav.recurring'),
+    '/tag-stats': t('nav.tagStats'),
+    '/budgets': t('nav.budgets'),
+    '/settings': t('nav.settings'),
+  };
+
   const pageTitle = isCalendarView
-    ? '日历视图'
+    ? t('nav.calendar')
     : routeTitleMap[location.pathname]
       || Object.entries(routeTitleMap).find(([path]) => path !== '/' && location.pathname.startsWith(path))?.[1]
-      || '个人记账';
+      || t('app.title');
 
   useEffect(() => {
     if (!token) { navigate('/login'); return; }
@@ -63,20 +65,20 @@ const AppLayout: React.FC = () => {
   }, []);
 
   const menuItems = [
-    { key: '/', icon: <DashboardOutlined />, label: '仪表盘' },
-    { key: '/transactions', icon: <TransactionOutlined />, label: '交易记录' },
-    { key: '/ledgers', icon: <WalletOutlined />, label: '账本管理' },
-    { key: '/categories', icon: <AppstoreOutlined />, label: '分类管理' },
-    { key: '/exchange-rates', icon: <DollarOutlined />, label: '汇率管理' },
-    { key: '/recurring', icon: <SyncOutlined />, label: '周期规则' },
-    { key: '/budgets', icon: <FundOutlined />, label: '预算管理' },
-    { key: '/tag-stats', icon: <TagsOutlined />, label: '标签统计' },
-    { key: '/settings', icon: <SettingOutlined />, label: '设置' },
+    { key: '/', icon: <DashboardOutlined />, label: t('nav.dashboard') },
+    { key: '/transactions', icon: <TransactionOutlined />, label: t('nav.transactions') },
+    { key: '/ledgers', icon: <WalletOutlined />, label: t('nav.ledgers') },
+    { key: '/categories', icon: <AppstoreOutlined />, label: t('nav.categories') },
+    { key: '/exchange-rates', icon: <DollarOutlined />, label: t('nav.exchangeRates') },
+    { key: '/recurring', icon: <SyncOutlined />, label: t('nav.recurring') },
+    { key: '/budgets', icon: <FundOutlined />, label: t('nav.budgets') },
+    { key: '/tag-stats', icon: <TagsOutlined />, label: t('nav.tagStats') },
+    { key: '/settings', icon: <SettingOutlined />, label: t('nav.settings') },
   ];
 
   const userMenu = {
     items: [
-      { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
+      { key: 'logout', icon: <LogoutOutlined />, label: t('nav.logout'), danger: true },
     ],
     onClick: ({ key }: { key: string }) => {
       if (key === 'logout') {
@@ -125,7 +127,7 @@ const AppLayout: React.FC = () => {
               />
             )}
             <Dropdown menu={userMenu}>
-              <span style={{ cursor: 'pointer' }}>{user?.username || '用户'}</span>
+              <span style={{ cursor: 'pointer' }}>{user?.username || t('nav.user')}</span>
             </Dropdown>
           </div>
         </Header>

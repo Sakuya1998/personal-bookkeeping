@@ -7,6 +7,7 @@ import {
   ArrowUpOutlined, ArrowDownOutlined, WalletOutlined, DownloadOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
 import dayjs from 'dayjs';
@@ -18,6 +19,7 @@ import PageTitle from '../components/layout/PageTitle';
 import PageToolbar from '../components/layout/PageToolbar';
 
 const DashboardPage: React.FC = () => {
+  const { t } = useTranslation();
   const { currentLedger } = useAppStore();
   const [summary, setSummary] = useState<LedgerSummary | null>(null);
   const [monthlyTrend, setMonthlyTrend] = useState<MonthlyTrendItem[]>([]);
@@ -49,9 +51,9 @@ const DashboardPage: React.FC = () => {
         setMonthlyTrend(trendRes.data.data || []);
         setCategoryBreakdown(catRes.data.data || []);
       })
-      .catch(err => console.error('获取仪表盘数据失败:', err))
+      .catch(err => console.error(t('dashboard.fetchDataFailed'), err))
       .finally(() => setLoading(false));
-  }, [currentLedger]);
+  }, [currentLedger, t]);
 
   const handleExport = async () => {
     if (!currentLedger) return;
@@ -74,13 +76,13 @@ const DashboardPage: React.FC = () => {
         a.download = `export.${exportFormat}`;
         a.click();
         URL.revokeObjectURL(downloadUrl);
-        message.success('导出完成');
+        message.success(t('common.exportSuccess'));
       } else if (contentType.includes('application/json')) {
         // Async task response or JSON data
         try {
           const parsed = JSON.parse(res.data);
           if (parsed.data?.task_id) {
-            message.info(`导出任务已提交，任务 ID: ${parsed.data.task_id}（共 ${parsed.data.total} 条记录）`);
+            message.info(t('dashboard.exportTaskSubmitted', { taskId: parsed.data.task_id, total: parsed.data.total }));
           } else if (Array.isArray(parsed.data)) {
             // Direct JSON export — download
             const blob = new Blob([JSON.stringify(parsed.data, null, 2)], { type: 'application/json' });
@@ -90,7 +92,7 @@ const DashboardPage: React.FC = () => {
             a.download = `export.json`;
             a.click();
             URL.revokeObjectURL(downloadUrl);
-            message.success('导出完成');
+            message.success(t('common.exportSuccess'));
           } else {
             message.info(JSON.stringify(parsed));
           }
@@ -108,7 +110,7 @@ const DashboardPage: React.FC = () => {
       setExportOpen(false);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '导出失败');
+      message.error(apiErr.response?.data?.message || t('common.exportFailed'));
     }
   };
 
@@ -128,11 +130,11 @@ const DashboardPage: React.FC = () => {
       a.download = `${currentLedger.name}_${date}_report.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-      message.success('报表生成成功');
+      message.success(t('dashboard.reportSuccess'));
       setReportOpen(false);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '报表生成失败');
+      message.error(apiErr.response?.data?.message || t('dashboard.reportFailed'));
     } finally {
       setReportLoading(false);
     }
@@ -140,9 +142,9 @@ const DashboardPage: React.FC = () => {
 
   if (!currentLedger) {
     return (
-      <PageLayout header={<PageTitle title="仪表盘" />}>
-        <Empty description="暂无账本">
-          <Button type="primary" onClick={() => navigate('/ledgers')}>创建账本</Button>
+      <PageLayout header={<PageTitle title={t('dashboard.title')} />}>
+        <Empty description={t('dashboard.noLedger')}>
+          <Button type="primary" onClick={() => navigate('/ledgers')}>{t('dashboard.createLedger')}</Button>
         </Empty>
       </PageLayout>
     );
@@ -150,19 +152,19 @@ const DashboardPage: React.FC = () => {
 
   const trendOption: EChartsOption = {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['收入', '支出'], top: 0 },
+    legend: { data: [t('transactions.income'), t('transactions.expense')], top: 0 },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: { type: 'category', boundaryGap: false, data: monthlyTrend.map((m) => m.month) },
     yAxis: { type: 'value' },
     series: [
       {
-        name: '收入', type: 'line', smooth: true,
+        name: t('transactions.income'), type: 'line', smooth: true,
         data: monthlyTrend.map((m) => m.income),
         itemStyle: { color: '#52c41a' },
         areaStyle: { color: 'rgba(82,196,26,0.1)' },
       },
       {
-        name: '支出', type: 'line', smooth: true,
+        name: t('transactions.expense'), type: 'line', smooth: true,
         data: monthlyTrend.map((m) => m.expense),
         itemStyle: { color: '#ff4d4f' },
         areaStyle: { color: 'rgba(255,77,79,0.08)' },
@@ -176,7 +178,7 @@ const DashboardPage: React.FC = () => {
     tooltip: { trigger: 'item' },
     legend: { orient: 'vertical', right: 0, top: 'middle', data: expenseItems.map((c) => c.category_name) },
     series: [{
-      name: '分类支出', type: 'pie', radius: ['45%', '72%'], center: ['40%', '50%'],
+      name: t('dashboard.expenseByCategory'), type: 'pie', radius: ['45%', '72%'], center: ['40%', '50%'],
       avoidLabelOverlap: false, padAngle: 2,
       itemStyle: { borderRadius: 6 },
       label: { show: false },
@@ -187,16 +189,16 @@ const DashboardPage: React.FC = () => {
 
   return (
     <PageLayout
-      header={<PageTitle title="仪表盘" description={`当前账本：${currentLedger.name}`} />}
+      header={<PageTitle title={t('dashboard.title')} description={t('dashboard.currentLedger', { name: currentLedger.name })} />}
       toolbar={(
         <PageToolbar
           right={(
             <>
               <Button type="primary" icon={<FileTextOutlined />} onClick={() => setReportOpen(true)}>
-                生成报表
+                {t('dashboard.generateReport')}
               </Button>
               <Button icon={<DownloadOutlined />} onClick={() => setExportOpen(true)}>
-                导出
+                {t('common.export')}
               </Button>
             </>
           )}
@@ -215,10 +217,10 @@ const DashboardPage: React.FC = () => {
             </Row>
             <Row gutter={16}>
               <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
-                <Card title="月度收支趋势"><Skeleton active paragraph={{ rows: 6 }} /></Card>
+                <Card title={t('dashboard.monthlyTrend')}><Skeleton active paragraph={{ rows: 6 }} /></Card>
               </Col>
               <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
-                <Card title="分类支出分布"><Skeleton active paragraph={{ rows: 6 }} /></Card>
+                <Card title={t('dashboard.expenseByCategory')}><Skeleton active paragraph={{ rows: 6 }} /></Card>
               </Col>
             </Row>
           </>
@@ -228,7 +230,7 @@ const DashboardPage: React.FC = () => {
               <Col span={8}>
                 <Card hoverable onClick={() => navigate('/transactions?type=income')}>
                   <Statistic
-                    title="总收入" value={summary?.total_income || 0} precision={2}
+                    title={t('dashboard.totalIncome')} value={summary?.total_income || 0} precision={2}
                     prefix={<ArrowUpOutlined />} valueStyle={{ color: '#52c41a' }}
                     suffix={currentLedger.base_currency}
                   />
@@ -237,7 +239,7 @@ const DashboardPage: React.FC = () => {
               <Col span={8}>
                 <Card hoverable onClick={() => navigate('/transactions?type=expense')}>
                   <Statistic
-                    title="总支出" value={summary?.total_expense || 0} precision={2}
+                    title={t('dashboard.totalExpense')} value={summary?.total_expense || 0} precision={2}
                     prefix={<ArrowDownOutlined />} valueStyle={{ color: '#ff4d4f' }}
                     suffix={currentLedger.base_currency}
                   />
@@ -246,7 +248,7 @@ const DashboardPage: React.FC = () => {
               <Col span={8}>
                 <Card>
                   <Statistic
-                    title="结余" value={summary?.balance || 0} precision={2}
+                    title={t('dashboard.balance')} value={summary?.balance || 0} precision={2}
                     prefix={<WalletOutlined />}
                     valueStyle={{ color: (summary?.balance || 0) >= 0 ? '#1890ff' : '#ff4d4f' }}
                     suffix={currentLedger.base_currency}
@@ -257,20 +259,20 @@ const DashboardPage: React.FC = () => {
 
             <Row gutter={16}>
               <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
-                <Card title="月度收支趋势">
+                <Card title={t('dashboard.monthlyTrend')}>
                   {monthlyTrend.length > 0 ? (
                     <ReactECharts option={trendOption} style={{ height: 320 }} />
                   ) : (
-                    <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                    <Empty description={t('common.noData')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
                   )}
                 </Card>
               </Col>
               <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
-                <Card title="分类支出分布">
+                <Card title={t('dashboard.expenseByCategory')}>
                   {expenseItems.length > 0 ? (
                     <ReactECharts option={ringOption} style={{ height: 320 }} />
                   ) : (
-                    <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                    <Empty description={t('common.noData')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
                   )}
                 </Card>
               </Col>
@@ -279,28 +281,28 @@ const DashboardPage: React.FC = () => {
         )}
 
         <Modal
-          title="导出数据"
+          title={t('dashboard.exportData')}
           open={exportOpen}
           onOk={handleExport}
           onCancel={() => setExportOpen(false)}
-          okText="开始导出"
-          cancelText="取消"
+          okText={t('dashboard.startExport')}
+          cancelText={t('common.cancel')}
         >
           <Space direction="vertical" style={{ width: '100%' }}>
             <div>
-              <div style={{ marginBottom: 8 }}>导出格式</div>
+              <div style={{ marginBottom: 8 }}>{t('dashboard.exportFormat')}</div>
               <Select
                 value={exportFormat}
                 onChange={(v) => setExportFormat(v)}
                 style={{ width: '100%' }}
                 options={[
-                  { label: 'CSV（Excel 兼容）', value: 'csv' },
+                  { label: t('dashboard.csvFormat'), value: 'csv' },
                   { label: 'JSON', value: 'json' },
                 ]}
               />
             </div>
             <div>
-              <div style={{ marginBottom: 8 }}>日期范围（可选，不选则导出全部）</div>
+              <div style={{ marginBottom: 8 }}>{t('dashboard.exportDateRangeHint')}</div>
               <DatePicker.RangePicker
                 style={{ width: '100%' }}
                 value={exportDateRange}
@@ -311,31 +313,31 @@ const DashboardPage: React.FC = () => {
         </Modal>
 
         <Modal
-          title="生成财务报表"
+          title={t('dashboard.reportTitle')}
           open={reportOpen}
           onOk={handleGenerateReport}
           onCancel={() => setReportOpen(false)}
           confirmLoading={reportLoading}
-          okText="生成 PDF"
-          cancelText="取消"
+          okText={t('dashboard.downloadPdf')}
+          cancelText={t('common.cancel')}
         >
           <Space direction="vertical" style={{ width: '100%' }}>
             <div>
-              <div style={{ marginBottom: 8 }}>周期类型</div>
+              <div style={{ marginBottom: 8 }}>{t('dashboard.reportPeriod')}</div>
               <Select
                 value={reportPeriod}
                 onChange={(v) => setReportPeriod(v)}
                 style={{ width: '100%' }}
                 options={[
-                  { label: '月度报表', value: 'monthly' },
-                  { label: '季度报表', value: 'quarterly' },
-                  { label: '年度报表', value: 'yearly' },
+                  { label: t('dashboard.monthly'), value: 'monthly' },
+                  { label: t('dashboard.quarterly'), value: 'quarterly' },
+                  { label: t('dashboard.yearly'), value: 'yearly' },
                 ]}
               />
             </div>
             <div>
               <div style={{ marginBottom: 8 }}>
-                {reportPeriod === 'monthly' ? '选择月份' : reportPeriod === 'yearly' ? '选择年份' : '选择季度起始月'}
+                {reportPeriod === 'monthly' ? t('dashboard.selectMonth') : reportPeriod === 'yearly' ? t('dashboard.selectYear') : t('dashboard.selectQuarter')}
               </div>
               <DatePicker
                 picker={reportPeriod === 'yearly' ? 'year' : 'month'}

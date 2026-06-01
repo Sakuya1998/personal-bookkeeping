@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Table, Button, Popconfirm, Select, DatePicker, Input, message, Skeleton, Empty } from 'antd';
 import { SyncOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse, ExchangeRate } from '../api/types';
@@ -11,6 +12,7 @@ import PageToolbar from '../components/layout/PageToolbar';
 import ContentCard from '../components/layout/ContentCard';
 
 const ExchangeRatesPage: React.FC = () => {
+  const { t } = useTranslation();
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -40,11 +42,11 @@ const ExchangeRatesPage: React.FC = () => {
     setSyncing(true);
     try {
       await client.post('/exchange-rates/sync');
-      message.success('汇率同步成功');
+      message.success(t('exchangeRates.syncSuccess'));
       loadRates();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '同步失败');
+      message.error(apiErr.response?.data?.message || t('exchangeRates.syncFailed'));
     } finally {
       setSyncing(false);
     }
@@ -53,11 +55,11 @@ const ExchangeRatesPage: React.FC = () => {
   const handleDelete = async (id: string) => {
     try {
       await client.delete(`/exchange-rates/${id}`);
-      message.success('删除成功');
+      message.success(t('common.success'));
       loadRates();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '删除失败');
+      message.error(apiErr.response?.data?.message || t('common.failed'));
     }
   };
 
@@ -81,15 +83,15 @@ const ExchangeRatesPage: React.FC = () => {
   const hasFilters = Boolean(filters.from_currency || filters.to_currency || filters.source.trim() || filters.dateRange);
 
   const columns = [
-    { title: '源币种', dataIndex: 'from_currency', key: 'from' },
-    { title: '目标币种', dataIndex: 'to_currency', key: 'to' },
-    { title: <div style={{ textAlign: 'right' }}>汇率</div>, dataIndex: 'rate', key: 'rate', align: 'right' as const, width: 140, render: (v: number) => v.toFixed(6) },
-    { title: <div style={{ textAlign: 'right' }}>日期</div>, dataIndex: 'date', key: 'date', align: 'right' as const, width: 120 },
-    { title: '来源', dataIndex: 'source', key: 'source' },
+    { title: t('exchangeRates.fromCurrency'), dataIndex: 'from_currency', key: 'from' },
+    { title: t('exchangeRates.toCurrency'), dataIndex: 'to_currency', key: 'to' },
+    { title: <div style={{ textAlign: 'right' }}>{t('exchangeRates.rate')}</div>, dataIndex: 'rate', key: 'rate', align: 'right' as const, width: 140, render: (v: number) => v.toFixed(6) },
+    { title: <div style={{ textAlign: 'right' }}>{t('exchangeRates.date')}</div>, dataIndex: 'date', key: 'date', align: 'right' as const, width: 120 },
+    { title: t('exchangeRates.source'), dataIndex: 'source', key: 'source' },
     {
-      title: '操作', key: 'action', width: 80,
+      title: t('exchangeRates.action'), key: 'action', width: 80,
       render: (_: unknown, r: ExchangeRate) => (
-        <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>
+        <Popconfirm title={t('exchangeRates.deleteConfirm')} onConfirm={() => handleDelete(r.id)}>
           <Button size="small" danger icon={<DeleteOutlined />} />
         </Popconfirm>
       ),
@@ -98,14 +100,14 @@ const ExchangeRatesPage: React.FC = () => {
 
   return (
     <PageLayout
-      header={<PageTitle title="汇率管理" />}
+      header={<PageTitle title={t('exchangeRates.title')} />}
       toolbar={(
         <PageToolbar
           left={(
             <>
               <Select
                 allowClear
-                placeholder="源币种"
+                placeholder={t('exchangeRates.fromCurrency')}
                 style={{ width: 140 }}
                 value={filters.from_currency || undefined}
                 options={currencyOpts}
@@ -113,7 +115,7 @@ const ExchangeRatesPage: React.FC = () => {
               />
               <Select
                 allowClear
-                placeholder="目标币种"
+                placeholder={t('exchangeRates.toCurrency')}
                 style={{ width: 140 }}
                 value={filters.to_currency || undefined}
                 options={currencyOpts}
@@ -126,7 +128,7 @@ const ExchangeRatesPage: React.FC = () => {
               />
               <Input
                 allowClear
-                placeholder="来源"
+                placeholder={t('exchangeRates.source')}
                 style={{ width: 200 }}
                 value={filters.source}
                 onChange={(e) => setFilters(p => ({ ...p, source: e.target.value }))}
@@ -140,7 +142,7 @@ const ExchangeRatesPage: React.FC = () => {
               loading={syncing}
               onClick={handleSync}
             >
-              手动同步
+              {t('exchangeRates.sync')}
             </Button>
           )}
         />
@@ -150,7 +152,7 @@ const ExchangeRatesPage: React.FC = () => {
         {loading && rates.length === 0 ? (
           <Skeleton active paragraph={{ rows: 6 }} />
         ) : filteredRates.length === 0 ? (
-          <Empty description={hasFilters ? '无匹配记录' : '暂无汇率记录'} />
+          <Empty description={hasFilters ? t('common.noMatch') : t('common.noData')} />
         ) : (
           <Table dataSource={filteredRates} columns={columns} rowKey="id" size="small" pagination={{ pageSize: 50 }} />
         )}

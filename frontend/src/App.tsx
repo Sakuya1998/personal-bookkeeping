@@ -1,15 +1,18 @@
 import React, { Suspense } from 'react';
 import { Spin } from 'antd';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ConfigProvider, App as AntApp } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
+import { App as AntApp } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { antdTheme } from './theme/antdTheme';
 import { useAppStore } from './store/appStore';
 import ErrorBoundary from './components/ErrorBoundary';
 import AuthEventBridge from './components/AuthEventBridge';
+import LocaleProvider from './components/LocaleProvider';
 import AppLayout from './pages/AppLayout';
+
+import './i18n';
+
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const TransactionsPage = React.lazy(() => import('./pages/TransactionsPage'));
 const LedgersPage = React.lazy(() => import('./pages/LedgersPage'));
@@ -39,7 +42,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 const App: React.FC = () => {
   return (
-    <ConfigProvider locale={zhCN} theme={antdTheme}>
+    <LocaleProvider>
       <AntApp>
         <BrowserRouter>
           <AuthEventBridge />
@@ -65,7 +68,7 @@ const App: React.FC = () => {
           </ErrorBoundary>
         </BrowserRouter>
       </AntApp>
-    </ConfigProvider>
+    </LocaleProvider>
   );
 };
 

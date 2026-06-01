@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Row, Col, Button, Modal, Form, Input, Select, Tag, Popconfirm, message, Empty } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WalletOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import client from '../api/client';
 import { ApiResponse, Ledger } from '../api/types';
 import { useAppStore } from '../store/appStore';
@@ -11,6 +12,7 @@ import PageToolbar from '../components/layout/PageToolbar';
 import ContentCard from '../components/layout/ContentCard';
 
 const LedgersPage: React.FC = () => {
+  const { t } = useTranslation();
   const { ledgers, setLedgers, setCurrentLedger, currentLedger } = useAppStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Ledger | null>(null);
@@ -23,9 +25,9 @@ const LedgersPage: React.FC = () => {
       setLedgers(res.data.data);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '加载账本失败');
+      message.error(apiErr.response?.data?.message || t('common.failed'));
     }
-  }, [setLedgers]);
+  }, [setLedgers, t]);
 
   useEffect(() => {
     loadLedgers();
@@ -36,10 +38,10 @@ const LedgersPage: React.FC = () => {
     try {
       if (editing) {
         await client.put(`/ledgers/${editing.id}`, values);
-        message.success('更新成功');
+        message.success(t('ledgers.updateSuccess'));
       } else {
         await client.post('/ledgers', values);
-        message.success('创建成功');
+        message.success(t('ledgers.createSuccess'));
       }
       setModalOpen(false);
       setEditing(null);
@@ -47,7 +49,7 @@ const LedgersPage: React.FC = () => {
       loadLedgers();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '操作失败');
+      message.error(apiErr.response?.data?.message || t('common.failed'));
     } finally {
       setLoading(false);
     }
@@ -56,14 +58,14 @@ const LedgersPage: React.FC = () => {
   const handleDelete = async (id: string) => {
     try {
       await client.delete(`/ledgers/${id}`);
-      message.success('删除成功');
+      message.success(t('common.success'));
       if (currentLedger?.id === id) {
         setCurrentLedger(null);
       }
       loadLedgers();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '删除失败');
+      message.error(apiErr.response?.data?.message || t('common.failed'));
     }
   };
 
@@ -82,17 +84,17 @@ const LedgersPage: React.FC = () => {
 
   return (
     <PageLayout
-      header={<PageTitle title="账本管理" />}
+      header={<PageTitle title={t('nav.ledgers')} />}
       toolbar={(
         <PageToolbar
-          right={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新建账本</Button>}
+          right={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('ledgers.add')}</Button>}
         />
       )}
     >
       <ContentCard>
         {ledgers.length === 0 ? (
-          <Empty description="还没有账本，创建第一个吧">
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>创建账本</Button>
+          <Empty description={t('dashboard.noLedger')}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('ledgers.add')}</Button>
           </Empty>
         ) : (
           <Row gutter={[16, 16]}>
@@ -104,7 +106,7 @@ const LedgersPage: React.FC = () => {
                   style={currentLedger?.id === ledger.id ? { border: '2px solid #1890ff' } : {}}
                   actions={[
                     <EditOutlined key="edit" onClick={(e) => { e.stopPropagation(); openEdit(ledger); }} />,
-                    <Popconfirm key="del" title="确定删除？" onConfirm={(e) => { e?.stopPropagation(); handleDelete(ledger.id); }}>
+                    <Popconfirm key="del" title={t('ledgers.deleteConfirm')} onConfirm={(e) => { e?.stopPropagation(); handleDelete(ledger.id); }}>
                       <DeleteOutlined onClick={(e) => e.stopPropagation()} />
                     </Popconfirm>,
                   ]}
@@ -127,26 +129,26 @@ const LedgersPage: React.FC = () => {
       </ContentCard>
 
       <Modal
-        title={editing ? '编辑账本' : '创建账本'}
+        title={editing ? t('ledgers.edit') : t('ledgers.add')}
         open={modalOpen}
         onOk={form.submit}
         onCancel={() => { setModalOpen(false); setEditing(null); }}
         confirmLoading={loading}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item name="name" label="名称" rules={[{ required: true }]}>
+          <Form.Item name="name" label={t('ledgers.name')} rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="描述">
+          <Form.Item name="description" label={t('ledgers.description')}>
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Form.Item name="base_currency" label="本位币">
+          <Form.Item name="base_currency" label={t('ledgers.baseCurrency')}>
             <Select options={CURRENCIES.map(c => ({ label: `${c.symbol} ${c.code} - ${c.name}`, value: c.code }))} />
           </Form.Item>
-          <Form.Item name="icon" label="图标">
+          <Form.Item name="icon" label={t('ledgers.icon')}>
             <Input placeholder="💰" />
           </Form.Item>
-          <Form.Item name="color" label="颜色">
+          <Form.Item name="color" label={t('ledgers.color')}>
             <Input placeholder="#1890ff" />
           </Form.Item>
         </Form>

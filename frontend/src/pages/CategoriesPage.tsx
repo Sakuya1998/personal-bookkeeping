@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Tabs, Table, Button, Modal, Form, Input, InputNumber, Space, Popconfirm, message, Dropdown, Skeleton, Empty } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import client from '../api/client';
 import { ApiResponse, Category } from '../api/types';
 import { useAppStore } from '../store/appStore';
@@ -10,6 +11,7 @@ import PageToolbar from '../components/layout/PageToolbar';
 import ContentCard from '../components/layout/ContentCard';
 
 const CategoriesPage: React.FC = () => {
+  const { t } = useTranslation();
   const { currentLedger } = useAppStore();
   const [income, setIncome] = useState<Category[]>([]);
   const [expense, setExpense] = useState<Category[]>([]);
@@ -45,10 +47,10 @@ const CategoriesPage: React.FC = () => {
       };
       if (editing) {
         await client.put(`/categories/${editing.id}`, data);
-        message.success('更新成功');
+        message.success(t('categories.updateSuccess'));
       } else {
         await client.post('/categories', data);
-        message.success('创建成功');
+        message.success(t('categories.createSuccess'));
       }
       setModalOpen(false);
       setEditing(null);
@@ -56,18 +58,18 @@ const CategoriesPage: React.FC = () => {
       load();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      message.error(e.response?.data?.message || '操作失败');
+      message.error(e.response?.data?.message || t('common.failed'));
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await client.delete(`/categories/${id}`);
-      message.success('删除成功');
+      message.success(t('common.success'));
       load();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      message.error(e.response?.data?.message || '删除失败');
+      message.error(e.response?.data?.message || t('common.failed'));
     }
   };
 
@@ -86,15 +88,15 @@ const CategoriesPage: React.FC = () => {
   };
 
   const columns = [
-    { title: '图标', dataIndex: 'icon', key: 'icon', width: 60, render: (v: string) => v || '-' },
-    { title: '名称', dataIndex: 'name', key: 'name' },
-    { title: '排序', dataIndex: 'sort_order', key: 'sort', width: 60 },
+    { title: t('categories.icon'), dataIndex: 'icon', key: 'icon', width: 60, render: (v: string) => v || '-' },
+    { title: t('categories.name'), dataIndex: 'name', key: 'name' },
+    { title: t('categories.sort'), dataIndex: 'sort_order', key: 'sort', width: 60 },
     {
-      title: '操作', key: 'action', width: 100,
+      title: t('categories.action'), key: 'action', width: 100,
       render: (_: unknown, r: Category) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
-          <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>
+          <Popconfirm title={t('common.confirmDelete')} onConfirm={() => handleDelete(r.id)}>
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -104,11 +106,11 @@ const CategoriesPage: React.FC = () => {
 
   const dataSource = useMemo(() => (type === 'expense' ? expense : income), [type, expense, income]);
 
-  const createLabel = type === 'expense' ? '新建支出分类' : '新建收入分类';
+  const createLabel = type === 'expense' ? t('categories.addExpense') : t('categories.addIncome');
 
   return (
     <PageLayout
-      header={<PageTitle title="分类管理" />}
+      header={<PageTitle title={t('categories.title')} />}
       toolbar={(
         <PageToolbar
           left={(
@@ -116,8 +118,8 @@ const CategoriesPage: React.FC = () => {
               activeKey={type}
               onChange={(k) => setType(k as 'income' | 'expense')}
               items={[
-                { key: 'expense', label: '支出分类', children: null },
-                { key: 'income', label: '收入分类', children: null },
+                { key: 'expense', label: t('categories.expenseTab'), children: null },
+                { key: 'income', label: t('categories.incomeTab'), children: null },
               ]}
               tabBarStyle={{ margin: 0 }}
               style={{ margin: 0 }}
@@ -130,8 +132,8 @@ const CategoriesPage: React.FC = () => {
               onClick={() => openCreate(type)}
               menu={{
                 items: [
-                  { key: 'expense', label: '新建支出分类' },
-                  { key: 'income', label: '新建收入分类' },
+                  { key: 'expense', label: t('categories.addExpense') },
+                  { key: 'income', label: t('categories.addIncome') },
                 ],
                 onClick: ({ key }) => openCreate(key as 'income' | 'expense'),
               }}
@@ -146,29 +148,29 @@ const CategoriesPage: React.FC = () => {
         {loading && dataSource.length === 0 ? (
           <Skeleton active paragraph={{ rows: 6 }} />
         ) : dataSource.length === 0 ? (
-          <Empty description="暂无分类" />
+          <Empty description={t('categories.empty')} />
         ) : (
           <Table dataSource={dataSource} columns={columns} rowKey="id" size="small" pagination={false} />
         )}
       </ContentCard>
 
       <Modal
-        title={editing ? '编辑分类' : createLabel}
+        title={editing ? t('categories.edit') : createLabel}
         open={modalOpen}
         onOk={form.submit}
         onCancel={() => { setModalOpen(false); setEditing(null); }}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item name="name" label="名称" rules={[{ required: true }]}>
+          <Form.Item name="name" label={t('categories.name')} rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="icon" label="图标（Emoji）">
+          <Form.Item name="icon" label={t('categories.icon')}>
             <Input placeholder="🍽️" />
           </Form.Item>
-          <Form.Item name="color" label="颜色">
+          <Form.Item name="color" label={t('categories.color')}>
             <Input placeholder="#1890ff" />
           </Form.Item>
-          <Form.Item name="sort_order" label="排序">
+          <Form.Item name="sort_order" label={t('categories.sort')}>
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
         </Form>

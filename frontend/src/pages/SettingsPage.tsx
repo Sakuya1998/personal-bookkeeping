@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, message, Row, Col } from 'antd';
+import { Form, Input, Button, message, Row, Col, Select } from 'antd';
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/appStore';
 import client from '../api/client';
 import { ApiResponse, User } from '../api/types';
@@ -9,6 +10,7 @@ import PageTitle from '../components/layout/PageTitle';
 import ContentCard from '../components/layout/ContentCard';
 
 const SettingsPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const { user, setUser } = useAppStore();
   const [pwLoading, setPwLoading] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
@@ -17,7 +19,7 @@ const SettingsPage: React.FC = () => {
 
   const handleChangePassword = async (values: { old_password: string; new_password: string; confirm_password: string }) => {
     if (values.new_password !== values.confirm_password) {
-      message.error('两次输入的新密码不一致');
+      message.error(t('auth.passwordNotMatch'));
       return;
     }
     setPwLoading(true);
@@ -26,11 +28,11 @@ const SettingsPage: React.FC = () => {
         old_password: values.old_password,
         new_password: values.new_password,
       });
-      message.success('密码修改成功');
+      message.success(t('settings.passwordSuccess'));
       pwForm.resetFields();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '密码修改失败');
+      message.error(apiErr.response?.data?.message || t('settings.passwordFailed'));
     } finally {
       setPwLoading(false);
     }
@@ -40,26 +42,26 @@ const SettingsPage: React.FC = () => {
     setEmailLoading(true);
     try {
       const res = await client.put<ApiResponse<User>>('/auth/email', { email: values.email });
-      message.success('邮箱修改成功');
+      message.success(t('settings.emailSuccess'));
       setUser(res.data.data);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '邮箱修改失败');
+      message.error(apiErr.response?.data?.message || t('settings.emailFailed'));
     } finally {
       setEmailLoading(false);
     }
   };
 
   return (
-    <PageLayout header={<PageTitle title="设置" description="管理个人信息与安全设置" />}>
+    <PageLayout header={<PageTitle title={t('settings.title')} description={t('settings.description')} />}>
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={12}>
-          <ContentCard title="个人信息">
+          <ContentCard title={t('settings.personalInfo')}>
             <Form layout="vertical">
-              <Form.Item label="用户名">
+              <Form.Item label={t('settings.username')}>
                 <Input prefix={<UserOutlined />} value={user?.username || ''} disabled />
               </Form.Item>
-              <Form.Item label="当前邮箱">
+              <Form.Item label={t('settings.currentEmail')}>
                 <Input prefix={<MailOutlined />} value={user?.email || ''} disabled />
               </Form.Item>
             </Form>
@@ -68,63 +70,79 @@ const SettingsPage: React.FC = () => {
 
         <Col xs={24} lg={12}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <ContentCard title="修改邮箱">
+            <ContentCard title={t('settings.changeEmail')}>
               <Form form={emailForm} layout="vertical" onFinish={handleChangeEmail} initialValues={{ email: user?.email }}>
                 <Form.Item
                   name="email"
-                  label="新邮箱"
+                  label={t('settings.newEmail')}
                   rules={[
-                    { required: true, message: '请输入新邮箱' },
-                    { type: 'email', message: '请输入有效的邮箱地址' },
+                    { required: true, message: t('settings.newEmailRequired') },
+                    { type: 'email', message: t('auth.emailInvalid') },
                   ]}
                 >
-                  <Input prefix={<MailOutlined />} placeholder="new@example.com" />
+                  <Input prefix={<MailOutlined />} placeholder={t('settings.emailPlaceholder')} />
                 </Form.Item>
                 <Form.Item>
-                  <Button type="primary" htmlType="submit" loading={emailLoading}>更新邮箱</Button>
+                  <Button type="primary" htmlType="submit" loading={emailLoading}>{t('settings.updateEmail')}</Button>
                 </Form.Item>
               </Form>
             </ContentCard>
 
-            <ContentCard title="修改密码">
+            <ContentCard title={t('settings.changePassword')}>
               <Form form={pwForm} layout="vertical" onFinish={handleChangePassword}>
                 <Form.Item
                   name="old_password"
-                  label="当前密码"
-                  rules={[{ required: true, message: '请输入当前密码' }]}
+                  label={t('settings.currentPassword')}
+                  rules={[{ required: true, message: t('settings.currentPasswordRequired') }]}
                 >
-                  <Input.Password prefix={<LockOutlined />} placeholder="输入当前密码" />
+                  <Input.Password prefix={<LockOutlined />} placeholder={t('settings.currentPasswordPlaceholder')} />
                 </Form.Item>
                 <Form.Item
                   name="new_password"
-                  label="新密码"
+                  label={t('settings.newPassword')}
                   rules={[
-                    { required: true, message: '请输入新密码' },
-                    { min: 6, message: '密码至少 6 个字符' },
+                    { required: true, message: t('settings.newPasswordRequired') },
+                    { min: 6, message: t('auth.passwordMin') },
                   ]}
                 >
-                  <Input.Password prefix={<LockOutlined />} placeholder="输入新密码" />
+                  <Input.Password prefix={<LockOutlined />} placeholder={t('settings.newPasswordPlaceholder')} />
                 </Form.Item>
                 <Form.Item
                   name="confirm_password"
-                  label="确认新密码"
+                  label={t('settings.confirmNewPassword')}
                   dependencies={['new_password']}
                   rules={[
-                    { required: true, message: '请再次输入新密码' },
+                    { required: true, message: t('settings.confirmNewPasswordRequired') },
                     ({ getFieldValue }) => ({
                       validator(_, value) {
                         if (!value || getFieldValue('new_password') === value) {
                           return Promise.resolve();
                         }
-                        return Promise.reject(new Error('两次输入的密码不一致'));
+                        return Promise.reject(new Error(t('auth.passwordNotMatch')));
                       },
                     }),
                   ]}
                 >
-                  <Input.Password prefix={<LockOutlined />} placeholder="再次输入新密码" />
+                  <Input.Password prefix={<LockOutlined />} placeholder={t('settings.confirmNewPasswordPlaceholder')} />
                 </Form.Item>
                 <Form.Item>
-                  <Button type="primary" htmlType="submit" loading={pwLoading} danger>修改密码</Button>
+                  <Button type="primary" htmlType="submit" loading={pwLoading} danger>{t('settings.changePassword')}</Button>
+                </Form.Item>
+              </Form>
+            </ContentCard>
+
+            <ContentCard title={t('settings.language')}>
+              <Form layout="vertical">
+                <Form.Item label={t('settings.languageLabel')}>
+                  <Select
+                    value={i18n.language}
+                    onChange={(lng) => i18n.changeLanguage(lng)}
+                    options={[
+                      { label: t('settings.chinese'), value: 'zh-CN' },
+                      { label: t('settings.english'), value: 'en-US' },
+                    ]}
+                    style={{ width: 200 }}
+                  />
                 </Form.Item>
               </Form>
             </ContentCard>

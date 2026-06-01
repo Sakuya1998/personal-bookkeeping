@@ -59,7 +59,7 @@ describe('CalendarViewPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('日历视图')).toBeInTheDocument();
+    expect(screen.getByText('calendar.title')).toBeInTheDocument();
     expect(container.querySelector('.ant-select')).toBeNull();
 
     await act(async () => {

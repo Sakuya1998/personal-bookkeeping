@@ -118,7 +118,7 @@ describe('BudgetPage', () => {
     render(<BudgetPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('预算执行状态')).toBeInTheDocument();
+      expect(screen.getByText('budgets.executionStatus')).toBeInTheDocument();
     });
   });
 
@@ -136,10 +136,10 @@ describe('BudgetPage', () => {
     render(<BudgetPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('本月暂无预算')).toBeInTheDocument();
+      expect(screen.getByText('budgets.noBudgetsThisMonth')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('暂无预算设置')).toBeInTheDocument();
+    expect(screen.getByText('budgets.noSettings')).toBeInTheDocument();
   });
 
   it('renders budget status items and budget table when data is available', async () => {
@@ -171,7 +171,7 @@ describe('BudgetPage', () => {
     });
 
     // "全部支出" appears both in the status section and as a Tag for budget with null category
-    const allExpenseElements = screen.getAllByText('全部支出');
+    const allExpenseElements = screen.getAllByText(/全部支出|budgets\.allExpenses/);
     expect(allExpenseElements.length).toBeGreaterThanOrEqual(2);
 
     // Budget table — category name from joined category
@@ -182,7 +182,7 @@ describe('BudgetPage', () => {
     expect(screen.getByText('¥3000.00')).toBeInTheDocument();
 
     // Budget list table header
-    expect(screen.getByText('预算设置')).toBeInTheDocument();
+    expect(screen.getByText('budgets.settings')).toBeInTheDocument();
   });
 
   it('opens the create modal when the "新增预算" button is clicked', async () => {
@@ -199,14 +199,14 @@ describe('BudgetPage', () => {
     render(<BudgetPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('本月暂无预算')).toBeInTheDocument();
+      expect(screen.getByText('budgets.noBudgetsThisMonth')).toBeInTheDocument();
     });
 
-    const createBtn = screen.getByRole('button', { name: /新增预算/ });
+    const createBtn = screen.getByRole('button', { name: /budgets\.add/ });
     fireEvent.click(createBtn);
 
     await waitFor(() => {
-      expect(screen.getByText('预算金额')).toBeInTheDocument();
+      expect(screen.getByText('budgets.amount')).toBeInTheDocument();
     });
   });
 
@@ -225,18 +225,18 @@ describe('BudgetPage', () => {
     render(<BudgetPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('本月暂无预算')).toBeInTheDocument();
+      expect(screen.getByText('budgets.noBudgetsThisMonth')).toBeInTheDocument();
     });
 
     // Open modal
-    fireEvent.click(screen.getByRole('button', { name: /新增预算/ }));
+    fireEvent.click(screen.getByRole('button', { name: /budgets\.add/ }));
 
     await waitFor(() => {
-      expect(screen.getByText('预算金额')).toBeInTheDocument();
+      expect(screen.getByText('budgets.amount')).toBeInTheDocument();
     });
 
     // Fill in the amount field
-    const amountInput = screen.getByPlaceholderText('例如 5000');
+    const amountInput = screen.getByPlaceholderText('budgets.amountPlaceholder');
     fireEvent.change(amountInput, { target: { value: '3000' } });
 
     // Submit form via its onFinish handler — click the Modal OK button
@@ -278,7 +278,7 @@ describe('BudgetPage', () => {
 
     // Wait for Popconfirm to render the "确定" button
     await waitFor(() => {
-      expect(screen.getByText('确定删除？')).toBeInTheDocument();
+      expect(screen.getByText('common.confirmDelete')).toBeInTheDocument();
     });
 
     // Click the confirm button in Popconfirm — antd uses "OK" in English locale (jsdom)

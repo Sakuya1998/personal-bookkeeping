@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Table, Button, Modal, Form, Input, Select, DatePicker,
   InputNumber, Tag, Space, message, Popconfirm, Switch, Row, Col, Skeleton, Empty, Divider,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse, RecurringRule, Category } from '../api/types';
@@ -14,23 +15,8 @@ import PageTitle from '../components/layout/PageTitle';
 import PageToolbar from '../components/layout/PageToolbar';
 import ContentCard from '../components/layout/ContentCard';
 
-const FREQ_OPTIONS = [
-  { label: '每天', value: 'daily' },
-  { label: '每周', value: 'weekly' },
-  { label: '每月', value: 'monthly' },
-  { label: '每年', value: 'yearly' },
-];
-
-const WEEKDAY_OPTIONS = [
-  { label: '周日', value: 0 }, { label: '周一', value: 1 },
-  { label: '周二', value: 2 }, { label: '周三', value: 3 },
-  { label: '周四', value: 4 }, { label: '周五', value: 5 },
-  { label: '周六', value: 6 },
-];
-
-const FREQ_LABELS: Record<string, string> = { daily: '每天', weekly: '每周', monthly: '每月', yearly: '每年' };
-
 const RecurringPage: React.FC = () => {
+  const { t } = useTranslation();
   const { currentLedger } = useAppStore();
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -40,6 +26,27 @@ const RecurringPage: React.FC = () => {
   const [form] = Form.useForm();
 
   const frequency = Form.useWatch('frequency', form);
+
+  const FREQ_OPTIONS = useMemo(() => [
+    { label: t('recurring.daily'), value: 'daily' },
+    { label: t('recurring.weekly'), value: 'weekly' },
+    { label: t('recurring.monthly'), value: 'monthly' },
+    { label: t('recurring.yearly'), value: 'yearly' },
+  ], [t]);
+
+  const WEEKDAY_OPTIONS = useMemo(() => [
+    { label: t('calendar.sun'), value: 0 }, { label: t('calendar.mon'), value: 1 },
+    { label: t('calendar.tue'), value: 2 }, { label: t('calendar.wed'), value: 3 },
+    { label: t('calendar.thu'), value: 4 }, { label: t('calendar.fri'), value: 5 },
+    { label: t('calendar.sat'), value: 6 },
+  ], [t]);
+
+  const FREQ_LABELS = useMemo<Record<string, string>>(() => ({
+    daily: t('recurring.daily'),
+    weekly: t('recurring.weekly'),
+    monthly: t('recurring.monthly'),
+    yearly: t('recurring.yearly'),
+  }), [t]);
 
   const loadRules = useCallback(async () => {
     if (!currentLedger) return;
@@ -57,8 +64,8 @@ const RecurringPage: React.FC = () => {
     loadRules();
     client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`)
       .then((res) => setCategories(res.data.data))
-      .catch(err => console.error('获取分类失败:', err));
-  }, [currentLedger, loadRules]);
+      .catch(err => console.error(t('recurring.fetchCategoriesFailed'), err));
+  }, [currentLedger, loadRules, t]);
 
   const handleSubmit = async (values: Record<string, unknown>) => {
     const data = {
@@ -75,10 +82,10 @@ const RecurringPage: React.FC = () => {
     try {
       if (editing) {
         await client.put(`/recurring/${editing.id}`, data);
-        message.success('更新成功');
+        message.success(t('recurring.updateSuccess'));
       } else {
         await client.post('/recurring', data);
-        message.success('创建成功');
+        message.success(t('recurring.createSuccess'));
       }
       setModalOpen(false);
       setEditing(null);
@@ -86,18 +93,18 @@ const RecurringPage: React.FC = () => {
       loadRules();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '操作失败');
+      message.error(apiErr.response?.data?.message || t('common.failed'));
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await client.delete(`/recurring/${id}`);
-      message.success('删除成功');
+      message.success(t('recurring.deleteSuccess'));
       loadRules();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '删除失败');
+      message.error(apiErr.response?.data?.message || t('recurring.deleteFailed'));
     }
   };
 
@@ -120,55 +127,72 @@ const RecurringPage: React.FC = () => {
     setModalOpen(true);
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
-      title: '类型', dataIndex: 'type', key: 'type', width: 70,
-      render: (t: string) => <Tag color={t === 'income' ? 'green' : 'red'}>{t === 'income' ? '收入' : '支出'}</Tag>,
+      title: t('transactions.type'), dataIndex: 'type', key: 'type', width: 70,
+      render: (tVal: string) => (
+        <Tag color={tVal === 'income' ? 'green' : 'red'}>
+          {tVal === 'income' ? t('transactions.income') : t('transactions.expense')}
+        </Tag>
+      ),
     },
     {
-      title: '金额', key: 'amount', width: 120,
+      title: t('transactions.amount'), key: 'amount', width: 120,
       render: (_: unknown, r: RecurringRule) => (
         <span style={{ color: r.type === 'income' ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}>
           {r.type === 'income' ? '+' : '-'}{formatCurrency(r.amount, r.currency)}
         </span>
       ),
     },
-    { title: '频率', key: 'freq', width: 100,
-      render: (_: unknown, r: RecurringRule) => `${FREQ_LABELS[r.frequency] || r.frequency}${r.interval > 1 ? ` (每${r.interval})` : ''}` },
-    { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true, render: (v: string | null) => v || '-' },
-    { title: '开始', dataIndex: 'start_date', key: 'start', width: 110 },
-    { title: '结束', dataIndex: 'end_date', key: 'end', width: 110, render: (v: string | null) => v || '无' },
-    { title: '下次执行', dataIndex: 'next_run_date', key: 'next', width: 110 },
     {
-      title: '状态', dataIndex: 'is_active', key: 'active', width: 80,
-      render: (v: boolean) => v ? <Tag color="green">启用</Tag> : <Tag color="default">停用</Tag>,
+      title: t('recurring.frequency'), key: 'freq', width: 100,
+      render: (_: unknown, r: RecurringRule) =>
+        `${FREQ_LABELS[r.frequency] || r.frequency}${r.interval > 1 ? ` (${t('recurring.every')}${r.interval})` : ''}`,
     },
     {
-      title: '操作', key: 'action', width: 100,
+      title: t('transactions.description'), dataIndex: 'description', key: 'desc',
+      ellipsis: true, render: (v: string | null) => v || '-',
+    },
+    { title: t('recurring.startDate'), dataIndex: 'start_date', key: 'start', width: 110 },
+    {
+      title: t('recurring.endDate'), dataIndex: 'end_date', key: 'end', width: 110,
+      render: (v: string | null) => v || t('recurring.noEndDate'),
+    },
+    { title: t('recurring.nextRun'), dataIndex: 'next_run_date', key: 'next', width: 110 },
+    {
+      title: t('recurring.status'), dataIndex: 'is_active', key: 'active', width: 80,
+      render: (v: boolean) =>
+        v ? <Tag color="green">{t('recurring.isActive')}</Tag> : <Tag color="default">{t('recurring.inactive')}</Tag>,
+    },
+    {
+      title: t('categories.action'), key: 'action', width: 100,
       render: (_: unknown, r: RecurringRule) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
-          <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>
+          <Popconfirm title={t('recurring.deleteConfirm')} onConfirm={() => handleDelete(r.id)}>
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
       ),
     },
-  ];
+  ], [t, FREQ_LABELS]);
 
-  const catOptions = categories.map((c) => ({ label: `${c.icon || ''} ${c.name}`, value: c.id }));
+  const catOptions = useMemo(
+    () => categories.map((c) => ({ label: `${c.icon || ''} ${c.name}`, value: c.id })),
+    [categories],
+  );
 
   return (
     <PageLayout
-      header={<PageTitle title="周期规则" description="周期性交易会自动在指定日期生成记账记录" />}
+      header={<PageTitle title={t('recurring.title')} description={t('recurring.pageDescription')} />}
       toolbar={(
         <PageToolbar
           left={(
             <Button icon={<SyncOutlined spin={loading} />} onClick={() => { loadRules(); }} disabled={loading}>
-              刷新
+              {t('common.refresh')}
             </Button>
           )}
-          right={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增规则</Button>}
+          right={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('recurring.add')}</Button>}
         />
       )}
     >
@@ -176,7 +200,7 @@ const RecurringPage: React.FC = () => {
         {loading && rules.length === 0 ? (
           <Skeleton active paragraph={{ rows: 6 }} />
         ) : rules.length === 0 ? (
-          <Empty description="暂无周期性规则" />
+          <Empty description={t('recurring.noRules')} />
         ) : (
           <Table
             dataSource={rules}
@@ -190,85 +214,88 @@ const RecurringPage: React.FC = () => {
       </ContentCard>
 
       <Modal
-        title={editing ? '编辑周期性规则' : '新增周期性规则'}
+        title={editing ? t('recurring.edit') : t('recurring.add')}
         open={modalOpen}
         onOk={form.submit}
         onCancel={() => { setModalOpen(false); setEditing(null); }}
         width={560}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Divider titlePlacement="left" style={{ marginTop: 0 }}>基础信息</Divider>
+          <Divider titlePlacement="left" style={{ marginTop: 0 }}>{t('recurring.basicInfo')}</Divider>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="type" label="类型" rules={[{ required: true }]}>
-                <Select options={[{ label: '收入', value: 'income' }, { label: '支出', value: 'expense' }]} />
+              <Form.Item name="type" label={t('transactions.type')} rules={[{ required: true }]}>
+                <Select options={[
+                  { label: t('transactions.income'), value: 'income' },
+                  { label: t('transactions.expense'), value: 'expense' },
+                ]} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="amount" label="金额" rules={[{ required: true }]}>
+              <Form.Item name="amount" label={t('transactions.amount')} rules={[{ required: true }]}>
                 <InputNumber min={0.01} step={0.01} style={{ width: '100%' }} prefix="¥" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item name="category_id" label="分类" rules={[{ required: true }]}>
+          <Form.Item name="category_id" label={t('transactions.category')} rules={[{ required: true }]}>
             <Select options={catOptions} />
           </Form.Item>
 
-          <Form.Item name="currency" label="币种">
+          <Form.Item name="currency" label={t('transactions.currency')}>
             <Select options={CURRENCIES.map((c) => ({ label: `${c.symbol} ${c.code}`, value: c.code }))} />
           </Form.Item>
 
-          <Form.Item name="description" label="描述">
+          <Form.Item name="description" label={t('transactions.description')}>
             <Input.TextArea rows={2} />
           </Form.Item>
 
-          <Divider titlePlacement="left">规则</Divider>
+          <Divider titlePlacement="left">{t('recurring.ruleSection')}</Divider>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="frequency" label="频率" rules={[{ required: true }]}>
+              <Form.Item name="frequency" label={t('recurring.frequency')} rules={[{ required: true }]}>
                 <Select options={FREQ_OPTIONS} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="interval" label="间隔" tooltip="每 N 个周期执行一次">
+              <Form.Item name="interval" label={t('recurring.interval')} tooltip={t('recurring.intervalTooltip')}>
                 <InputNumber min={1} max={365} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
 
           {frequency === 'weekly' && (
-            <Form.Item name="weekday" label="星期几">
+            <Form.Item name="weekday" label={t('recurring.weekday')}>
               <Select options={WEEKDAY_OPTIONS} />
             </Form.Item>
           )}
 
           {frequency === 'monthly' && (
-            <Form.Item name="day_of_month" label="每月几号" tooltip="1-31，如果超过当月天数则取最后一天">
+            <Form.Item name="day_of_month" label={t('recurring.dayOfMonth')} tooltip={t('recurring.dayOfMonthTooltip')}>
               <InputNumber min={1} max={31} style={{ width: '100%' }} />
             </Form.Item>
           )}
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="start_date" label="开始日期" rules={[{ required: true }]}>
+              <Form.Item name="start_date" label={t('recurring.startDate')} rules={[{ required: true }]}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="end_date" label="结束日期（可选）">
+              <Form.Item name="end_date" label={`${t('recurring.endDate')}（${t('recurring.optional')}）`}>
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
 
-          <Divider titlePlacement="left">高级</Divider>
-          <Form.Item name="tags" label="标签">
-            <Select mode="tags" placeholder="输入标签后回车" />
+          <Divider titlePlacement="left">{t('recurring.advanced')}</Divider>
+          <Form.Item name="tags" label={t('transactions.tags')}>
+            <Select mode="tags" placeholder={t('transactions.tagPlaceholder')} />
           </Form.Item>
 
           {editing && (
-            <Form.Item name="is_active" label="启用" valuePropName="checked">
+            <Form.Item name="is_active" label={t('recurring.isActive')} valuePropName="checked">
               <Switch />
             </Form.Item>
           )}

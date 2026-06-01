@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Table, Button, Modal, Form, Input, InputNumber, Select, DatePicker, Tag, Space, message, Popconfirm, Skeleton } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TagsOutlined, CameraOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse, PaginatedData, Transaction, Category } from '../api/types';
@@ -11,6 +12,7 @@ import PageTitle from '../components/layout/PageTitle';
 import PageToolbar from '../components/layout/PageToolbar';
 
 const TransactionsPage: React.FC = () => {
+  const { t } = useTranslation();
   const { currentLedger } = useAppStore();
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [total, setTotal] = useState(0);
@@ -64,14 +66,14 @@ const TransactionsPage: React.FC = () => {
       if (editing) {
         const res = await client.put<ApiResponse<{ transaction: Transaction; over_budget: boolean }>>(`/transactions/${editing.id}`, data);
         overBudget = res.data.data.over_budget;
-        message.success('更新成功');
+        message.success(t('transactions.updateSuccess'));
       } else {
         const res = await client.post<ApiResponse<{ transaction: Transaction; over_budget: boolean }>>('/transactions', data);
         overBudget = res.data.data.over_budget;
-        message.success('创建成功');
+        message.success(t('transactions.createSuccess'));
       }
       if (overBudget) {
-        message.warning({ content: '⚠️ 该笔交易已超出当月预算，请注意控制支出', duration: 5, key: 'budget_warning' });
+        message.warning({ content: t('transactions.budgetWarning'), duration: 5, key: 'budget_warning' });
       }
       setModalOpen(false);
       setEditing(null);
@@ -79,39 +81,39 @@ const TransactionsPage: React.FC = () => {
       loadTxns();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '操作失败');
+      message.error(apiErr.response?.data?.message || t('common.failed'));
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await client.delete(`/transactions/${id}`);
-      message.success('删除成功');
+      message.success(t('transactions.deleteSuccess'));
       loadTxns();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '删除失败');
+      message.error(apiErr.response?.data?.message || t('transactions.deleteFailed'));
     }
   };
 
   const handleBatchDelete = () => {
     Modal.confirm({
-      title: '批量删除',
-      content: `确定要删除选中的 ${selectedRowKeys.length} 条记录吗？此操作不可恢复。`,
-      okText: '确认删除',
+      title: t('transactions.batchDelete'),
+      content: t('transactions.batchDeleteConfirm', { count: selectedRowKeys.length }),
+      okText: t('common.confirmDelete'),
       okType: 'danger',
-      cancelText: '取消',
+      cancelText: t('common.cancel'),
       onOk: async () => {
         try {
           const res = await client.post<ApiResponse<{ deleted: number }>>('/transactions/batch-delete', {
             ids: selectedRowKeys,
           });
-          message.success(`已删除 ${res.data.data.deleted} 条记录`);
+          message.success(t('transactions.batchDeleted', { count: res.data.data.deleted }));
           setSelectedRowKeys([]);
           loadTxns();
         } catch (err: unknown) {
           const apiErr = err as { response?: { data?: { message?: string } } };
-          message.error(apiErr.response?.data?.message || '批量删除失败');
+          message.error(apiErr.response?.data?.message || t('transactions.batchDeleteFailed'));
         }
       },
     });
@@ -124,14 +126,14 @@ const TransactionsPage: React.FC = () => {
         ids: selectedRowKeys,
         category_id: batchCategoryId,
       });
-      message.success(`已更新 ${res.data.data.updated} 条记录的分类`);
+      message.success(t('transactions.batchCategoryUpdated', { count: res.data.data.updated }));
       setBatchCategoryModalOpen(false);
       setBatchCategoryId(undefined);
       setSelectedRowKeys([]);
       loadTxns();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || '批量修改分类失败');
+      message.error(apiErr.response?.data?.message || t('transactions.batchCategoryFailed'));
     }
   };
 
@@ -162,13 +164,18 @@ const TransactionsPage: React.FC = () => {
         if (data.text) vals.description = (vals.description ? vals.description + ' ' : '') + data.text.slice(0, 100);
         form.resetFields();
         form.setFieldsValue(vals);
-        if (data.amount) message.success(`识别到金额: ¥${data.amount}${data.merchant ? '，商家: ' + data.merchant : ''}`);
-        else message.info('未识别到金额，请手动填写');
+        if (data.amount) {
+          message.success(data.merchant
+            ? t('transactions.ocrSuccessWithMerchant', { amount: data.amount, merchant: data.merchant })
+            : t('transactions.ocrSuccess', { amount: data.amount }));
+        } else {
+          message.info(t('transactions.ocrNoAmount'));
+        }
         setEditing(null);
         setModalOpen(true);
       } catch (err: unknown) {
         const apiErr = err as { response?: { data?: { message?: string } } };
-        message.error(apiErr.response?.data?.message || '识别失败');
+        message.error(apiErr.response?.data?.message || t('transactions.ocrFailed'));
       } finally {
         setOcrLoading(false);
       }
@@ -191,15 +198,15 @@ const TransactionsPage: React.FC = () => {
     : null;
 
   const columns = [
-    { title: '日期', dataIndex: 'transaction_date', key: 'date', width: 110 },
-    { title: '分类', key: 'category', width: 120, render: (_: unknown, r: Transaction) => {
+    { title: t('transactions.date'), dataIndex: 'transaction_date', key: 'date', width: 110 },
+    { title: t('transactions.category'), key: 'category', width: 120, render: (_: unknown, r: Transaction) => {
       const cat = r.category;
       return cat ? `${cat.icon || ''} ${cat.name}` : '-';
     }},
-    { title: '类型', dataIndex: 'type', key: 'type', width: 70,
-      render: (t: string) => <Tag color={t === 'income' ? 'green' : 'red'}>{t === 'income' ? '收入' : '支出'}</Tag>,
+    { title: t('transactions.type'), dataIndex: 'type', key: 'type', width: 70,
+      render: (tType: string) => <Tag color={tType === 'income' ? 'green' : 'red'}>{tType === 'income' ? t('transactions.income') : t('transactions.expense')}</Tag>,
     },
-    { title: <div style={{ textAlign: 'right' }}>金额</div>, key: 'amount', width: 160,
+    { title: <div style={{ textAlign: 'right' }}>{t('transactions.amount')}</div>, key: 'amount', width: 160,
       render: (_: unknown, r: Transaction) => {
         const cur = currentLedger?.base_currency || 'CNY';
         return (
@@ -212,7 +219,7 @@ const TransactionsPage: React.FC = () => {
         );
       },
     },
-    { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true,
+    { title: t('transactions.description'), dataIndex: 'description', key: 'desc', ellipsis: true,
       render: (_: unknown, r: Transaction) => {
         const text = r.description || '';
         if (!filters.keyword || !text) return text || '-';
@@ -230,11 +237,11 @@ const TransactionsPage: React.FC = () => {
       },
     },
     {
-      title: '操作', key: 'action', width: 100,
+      title: t('transactions.actions'), key: 'action', width: 100,
       render: (_: unknown, r: Transaction) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
-          <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>
+          <Popconfirm title={t('transactions.deleteConfirm')} onConfirm={() => handleDelete(r.id)}>
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -249,22 +256,22 @@ const TransactionsPage: React.FC = () => {
 
   return (
     <PageLayout
-      header={<PageTitle title="交易记录" />}
+      header={<PageTitle title={t('transactions.title')} />}
       toolbar={(
         <PageToolbar
           left={(
             <>
               <Select
                 allowClear
-                placeholder="类型"
+                placeholder={t('transactions.type')}
                 style={{ width: 110 }}
                 value={filters.type || undefined}
-                options={[{ label: '收入', value: 'income' }, { label: '支出', value: 'expense' }]}
+                options={[{ label: t('transactions.income'), value: 'income' }, { label: t('transactions.expense'), value: 'expense' }]}
                 onChange={(v) => setFilters(p => ({ ...p, type: v || '', category_id: '' }))}
               />
               <Select
                 allowClear
-                placeholder="分类"
+                placeholder={t('transactions.category')}
                 style={{ width: 160 }}
                 value={filters.category_id || undefined}
                 options={catOptions}
@@ -278,7 +285,7 @@ const TransactionsPage: React.FC = () => {
               <Input
                 allowClear
                 prefix={<SearchOutlined />}
-                placeholder="搜索描述"
+                placeholder={t('transactions.searchPlaceholder')}
                 style={{ width: 200 }}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -292,16 +299,16 @@ const TransactionsPage: React.FC = () => {
           )}
           right={(
             <>
-              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增</Button>
-              <Button icon={<CameraOutlined />} loading={ocrLoading} onClick={handleOCRUpload}>拍照记账</Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('transactions.add')}</Button>
+              <Button icon={<CameraOutlined />} loading={ocrLoading} onClick={handleOCRUpload}>{t('transactions.ocr')}</Button>
               {selectedRowKeys.length > 0 ? (
                 <>
-                  <Tag color="processing" style={{ marginInlineEnd: 0 }}>已选 {selectedRowKeys.length} 项</Tag>
+                  <Tag color="processing" style={{ marginInlineEnd: 0 }}>{t('transactions.selected')} {selectedRowKeys.length} {t('transactions.items')}</Tag>
                   <Button icon={<TagsOutlined />} onClick={() => {
                     setBatchCategoryId(undefined);
                     setBatchCategoryModalOpen(true);
-                  }}>修改分类</Button>
-                  <Button danger icon={<DeleteOutlined />} onClick={handleBatchDelete}>批量删除</Button>
+                  }}>{t('transactions.batchCategory')}</Button>
+                  <Button danger icon={<DeleteOutlined />} onClick={handleBatchDelete}>{t('transactions.batchDelete')}</Button>
                 </>
               ) : null}
             </>
@@ -324,61 +331,61 @@ const TransactionsPage: React.FC = () => {
       )}
 
       <Modal
-        title={editing ? '编辑记录' : '新增记录'}
+        title={editing ? t('transactions.edit') : t('transactions.add')}
         open={modalOpen}
         onOk={form.submit}
         onCancel={() => { setModalOpen(false); setEditing(null); }}
         width={500}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item name="type" label="类型" rules={[{ required: true }]}>
-            <Select options={[{ label: '收入', value: 'income' }, { label: '支出', value: 'expense' }]} onChange={() => form.setFieldValue('category_id', undefined)} />
+          <Form.Item name="type" label={t('transactions.type')} rules={[{ required: true }]}>
+            <Select options={[{ label: t('transactions.income'), value: 'income' }, { label: t('transactions.expense'), value: 'expense' }]} onChange={() => form.setFieldValue('category_id', undefined)} />
           </Form.Item>
           <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
             {({ getFieldValue }) => {
               const type = getFieldValue('type');
               const filtered = categories.filter(c => c.type === type);
               return (
-                <Form.Item name="category_id" label="分类" rules={[{ required: true }]}>
+                <Form.Item name="category_id" label={t('transactions.category')} rules={[{ required: true }]}>
                   <Select options={filtered.map(c => ({ label: `${c.icon || ''} ${c.name}`, value: c.id }))} />
                 </Form.Item>
               );
             }}
           </Form.Item>
-          <Form.Item name="amount" label="金额" rules={[{ required: true }]}>
+          <Form.Item name="amount" label={t('transactions.amount')} rules={[{ required: true }]}>
             <InputNumber step={0.01} min={0.01} prefix="¥" style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="currency" label="币种">
+          <Form.Item name="currency" label={t('transactions.currency')}>
             <Select options={CURRENCIES.map(c => ({ label: `${c.symbol} ${c.code}`, value: c.code }))} />
           </Form.Item>
-          <Form.Item name="description" label="描述">
+          <Form.Item name="description" label={t('transactions.description')}>
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Form.Item name="transaction_date" label="日期" rules={[{ required: true }]}>
+          <Form.Item name="transaction_date" label={t('transactions.date')} rules={[{ required: true }]}>
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="tags" label="标签">
-            <Select mode="tags" placeholder="输入标签后回车" />
+          <Form.Item name="tags" label={t('transactions.tags')}>
+            <Select mode="tags" placeholder={t('transactions.tagPlaceholder')} />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title="批量修改分类"
+        title={t('transactions.batchCategory')}
         open={batchCategoryModalOpen}
         onOk={handleBatchCategorySubmit}
         onCancel={() => { setBatchCategoryModalOpen(false); setBatchCategoryId(undefined); }}
-        okText="确认修改"
-        cancelText="取消"
+        okText={t('transactions.confirmModify')}
+        cancelText={t('common.cancel')}
         okButtonProps={{ disabled: !batchCategoryId }}
       >
-        <p style={{ marginBottom: 16 }}>将为选中的 {selectedRowKeys.length} 条记录统一修改分类：</p>
+        <p style={{ marginBottom: 16 }}>{t('transactions.batchCategoryDesc', { count: selectedRowKeys.length })}</p>
         <Select
-          placeholder="选择目标分类"
+          placeholder={t('transactions.selectCategory')}
           style={{ width: '100%' }}
           value={batchCategoryId}
           onChange={(v) => setBatchCategoryId(v)}
-          options={categories.map(c => ({ label: `${c.icon || ''} ${c.name} (${c.type === 'income' ? '收入' : '支出'})`, value: c.id }))}
+          options={categories.map(c => ({ label: `${c.icon || ''} ${c.name} (${c.type === 'income' ? t('transactions.income') : t('transactions.expense')})`, value: c.id }))}
         />
       </Modal>
     </PageLayout>
