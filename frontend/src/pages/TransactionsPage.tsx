@@ -1,11 +1,14 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Card, Table, Button, Modal, Form, Input, InputNumber, Select, DatePicker, Tag, Space, message, Popconfirm, Row, Col, Skeleton } from 'antd';
+import { Table, Button, Modal, Form, Input, InputNumber, Select, DatePicker, Tag, Space, message, Popconfirm, Skeleton } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TagsOutlined, CameraOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse, PaginatedData, Transaction, Category } from '../api/types';
 import { useAppStore } from '../store/appStore';
 import { CURRENCIES, formatCurrency } from '../utils/currency';
+import PageLayout from '../components/layout/PageLayout';
+import PageTitle from '../components/layout/PageTitle';
+import PageToolbar from '../components/layout/PageToolbar';
 
 const TransactionsPage: React.FC = () => {
   const { currentLedger } = useAppStore();
@@ -183,6 +186,10 @@ const TransactionsPage: React.FC = () => {
     .filter(c => !filters.type || c.type === filters.type)
     .map(c => ({ label: `${c.icon || ''} ${c.name}`, value: c.id }));
 
+  const dateRangeValue: [dayjs.Dayjs, dayjs.Dayjs] | null = (filters.start_date && filters.end_date)
+    ? [dayjs(filters.start_date), dayjs(filters.end_date)]
+    : null;
+
   const columns = [
     { title: '日期', dataIndex: 'transaction_date', key: 'date', width: 110 },
     { title: '分类', key: 'category', width: 120, render: (_: unknown, r: Transaction) => {
@@ -192,14 +199,16 @@ const TransactionsPage: React.FC = () => {
     { title: '类型', dataIndex: 'type', key: 'type', width: 70,
       render: (t: string) => <Tag color={t === 'income' ? 'green' : 'red'}>{t === 'income' ? '收入' : '支出'}</Tag>,
     },
-    { title: '金额', key: 'amount', width: 150,
+    { title: <div style={{ textAlign: 'right' }}>金额</div>, key: 'amount', width: 160,
       render: (_: unknown, r: Transaction) => {
         const cur = currentLedger?.base_currency || 'CNY';
         return (
-          <span style={{ color: r.type === 'income' ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}>
-            {r.type === 'income' ? '+' : '-'}{formatCurrency(r.base_amount, cur)}
-            {r.currency !== cur && <Tag style={{ marginLeft: 4 }}>{r.currency} {r.amount}</Tag>}
-          </span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <span style={{ color: r.type === 'income' ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}>
+              {r.type === 'income' ? '+' : '-'}{formatCurrency(r.base_amount, cur)}
+              {r.currency !== cur && <Tag style={{ marginInlineStart: 6, marginInlineEnd: 0 }}>{r.currency} {r.amount}</Tag>}
+            </span>
+          </div>
         );
       },
     },
@@ -239,42 +248,67 @@ const TransactionsPage: React.FC = () => {
   };
 
   return (
-    <div>
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Row gutter={[8, 8]} align="middle" justify="space-between">
-          <Col>
-            <Row gutter={[8, 8]} align="middle">
-              <Col><Select allowClear placeholder="类型" style={{ width: 100 }} options={[{ label: '收入', value: 'income' }, { label: '支出', value: 'expense' }]} onChange={(v) => setFilters(p => ({ ...p, type: v || '', category_id: '' }))} /></Col>
-              <Col><Select allowClear placeholder="分类" style={{ width: 140 }} options={catOptions} onChange={(v) => setFilters(p => ({ ...p, category_id: v || '' }))} /></Col>
-              <Col><DatePicker.RangePicker onChange={(dates) => setFilters(p => ({ ...p, start_date: dates?.[0]?.format('YYYY-MM-DD') || '', end_date: dates?.[1]?.format('YYYY-MM-DD') || '' }))} /></Col>
-              <Col><Input prefix={<SearchOutlined />} placeholder="搜索描述" style={{ width: 160 }} onChange={(e) => {
-                const value = e.target.value;
-                if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-                searchTimeoutRef.current = setTimeout(() => {
-                  setFilters(p => ({ ...p, keyword: value }));
-                }, 300);
-              }} /></Col>
-            </Row>
-          </Col>
-          <Col>
-            <Space>
-              {selectedRowKeys.length > 0 && (
+    <PageLayout
+      header={<PageTitle title="交易记录" />}
+      toolbar={(
+        <PageToolbar
+          left={(
+            <>
+              <Select
+                allowClear
+                placeholder="类型"
+                style={{ width: 110 }}
+                value={filters.type || undefined}
+                options={[{ label: '收入', value: 'income' }, { label: '支出', value: 'expense' }]}
+                onChange={(v) => setFilters(p => ({ ...p, type: v || '', category_id: '' }))}
+              />
+              <Select
+                allowClear
+                placeholder="分类"
+                style={{ width: 160 }}
+                value={filters.category_id || undefined}
+                options={catOptions}
+                onChange={(v) => setFilters(p => ({ ...p, category_id: v || '' }))}
+              />
+              <DatePicker.RangePicker
+                style={{ width: 260 }}
+                value={dateRangeValue}
+                onChange={(dates) => setFilters(p => ({ ...p, start_date: dates?.[0]?.format('YYYY-MM-DD') || '', end_date: dates?.[1]?.format('YYYY-MM-DD') || '' }))}
+              />
+              <Input
+                allowClear
+                prefix={<SearchOutlined />}
+                placeholder="搜索描述"
+                style={{ width: 200 }}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+                  searchTimeoutRef.current = setTimeout(() => {
+                    setFilters(p => ({ ...p, keyword: value }));
+                  }, 300);
+                }}
+              />
+            </>
+          )}
+          right={(
+            <>
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增</Button>
+              <Button icon={<CameraOutlined />} loading={ocrLoading} onClick={handleOCRUpload}>拍照记账</Button>
+              {selectedRowKeys.length > 0 ? (
                 <>
-                  <span style={{ color: '#999' }}>已选 {selectedRowKeys.length} 项</span>
+                  <Tag color="processing" style={{ marginInlineEnd: 0 }}>已选 {selectedRowKeys.length} 项</Tag>
                   <Button icon={<TagsOutlined />} onClick={() => {
                     setBatchCategoryId(undefined);
                     setBatchCategoryModalOpen(true);
                   }}>修改分类</Button>
-                  <Button danger onClick={handleBatchDelete}>批量删除</Button>
+                  <Button danger icon={<DeleteOutlined />} onClick={handleBatchDelete}>批量删除</Button>
                 </>
-              )}
-              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增</Button>
-              <Button icon={<CameraOutlined />} loading={ocrLoading} onClick={handleOCRUpload}>拍照记账</Button>
-            </Space>
-          </Col>
-        </Row>
-      </Card>
-
+              ) : null}
+            </>
+          )}
+        />
+      )}
+    >
       {loading && txns.length === 0 ? (
         <Skeleton active paragraph={{ rows: 8 }} />
       ) : (
@@ -289,7 +323,6 @@ const TransactionsPage: React.FC = () => {
         />
       )}
 
-      {/* Single transaction create/edit modal */}
       <Modal
         title={editing ? '编辑记录' : '新增记录'}
         open={modalOpen}
@@ -330,7 +363,6 @@ const TransactionsPage: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* Batch category update modal */}
       <Modal
         title="批量修改分类"
         open={batchCategoryModalOpen}
@@ -349,7 +381,7 @@ const TransactionsPage: React.FC = () => {
           options={categories.map(c => ({ label: `${c.icon || ''} ${c.name} (${c.type === 'income' ? '收入' : '支出'})`, value: c.id }))}
         />
       </Modal>
-    </div>
+    </PageLayout>
   );
 };
 

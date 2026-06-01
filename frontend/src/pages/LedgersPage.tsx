@@ -5,6 +5,10 @@ import client from '../api/client';
 import { ApiResponse, Ledger } from '../api/types';
 import { useAppStore } from '../store/appStore';
 import { CURRENCIES } from '../utils/currency';
+import PageLayout from '../components/layout/PageLayout';
+import PageTitle from '../components/layout/PageTitle';
+import PageToolbar from '../components/layout/PageToolbar';
+import ContentCard from '../components/layout/ContentCard';
 
 const LedgersPage: React.FC = () => {
   const { ledgers, setLedgers, setCurrentLedger, currentLedger } = useAppStore();
@@ -76,75 +80,51 @@ const LedgersPage: React.FC = () => {
     setModalOpen(true);
   };
 
-  if (ledgers.length === 0) {
-    return (
-      <div>
-        <Empty description="还没有账本，创建第一个吧">
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>创建账本</Button>
-        </Empty>
-        <Modal
-          title="创建账本"
-          open={modalOpen}
-          onOk={form.submit}
-          onCancel={() => { setModalOpen(false); setEditing(null); }}
-          confirmLoading={loading}
-        >
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item name="name" label="名称" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="description" label="描述">
-              <Input.TextArea rows={2} />
-            </Form.Item>
-            <Form.Item name="base_currency" label="本位币">
-              <Select options={CURRENCIES.map(c => ({ label: `${c.symbol} ${c.code} - ${c.name}`, value: c.code }))} />
-            </Form.Item>
-            <Form.Item name="icon" label="图标">
-              <Input placeholder="💰" />
-            </Form.Item>
-            <Form.Item name="color" label="颜色">
-              <Input placeholder="#1890ff" />
-            </Form.Item>
-          </Form>
-        </Modal>
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-        <h2 style={{ margin: 0 }}>账本管理</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新建账本</Button>
-      </div>
-      <Row gutter={[16, 16]}>
-        {ledgers.map((ledger) => (
-          <Col key={ledger.id} xs={24} sm={12} lg={8}>
-            <Card
-              hoverable
-              onClick={() => setCurrentLedger(ledger)}
-              style={currentLedger?.id === ledger.id ? { border: '2px solid #1890ff' } : {}}
-              actions={[
-                <EditOutlined key="edit" onClick={(e) => { e.stopPropagation(); openEdit(ledger); }} />,
-                <Popconfirm key="del" title="确定删除？" onConfirm={(e) => { e?.stopPropagation(); handleDelete(ledger.id); }}>
-                  <DeleteOutlined onClick={(e) => e.stopPropagation()} />
-                </Popconfirm>,
-              ]}
-            >
-              <Card.Meta
-                avatar={<WalletOutlined style={{ fontSize: 28, color: ledger.color || '#1890ff' }} />}
-                title={ledger.name}
-                description={
-                  <div>
-                    <div>{ledger.description}</div>
-                    <Tag color="blue" style={{ marginTop: 8 }}>{ledger.base_currency}</Tag>
-                  </div>
-                }
-              />
-            </Card>
-          </Col>
-        ))}
-      </Row>
+    <PageLayout
+      header={<PageTitle title="账本管理" />}
+      toolbar={(
+        <PageToolbar
+          right={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新建账本</Button>}
+        />
+      )}
+    >
+      <ContentCard>
+        {ledgers.length === 0 ? (
+          <Empty description="还没有账本，创建第一个吧">
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>创建账本</Button>
+          </Empty>
+        ) : (
+          <Row gutter={[16, 16]}>
+            {ledgers.map((ledger) => (
+              <Col key={ledger.id} xs={24} sm={12} lg={8}>
+                <Card
+                  hoverable
+                  onClick={() => setCurrentLedger(ledger)}
+                  style={currentLedger?.id === ledger.id ? { border: '2px solid #1890ff' } : {}}
+                  actions={[
+                    <EditOutlined key="edit" onClick={(e) => { e.stopPropagation(); openEdit(ledger); }} />,
+                    <Popconfirm key="del" title="确定删除？" onConfirm={(e) => { e?.stopPropagation(); handleDelete(ledger.id); }}>
+                      <DeleteOutlined onClick={(e) => e.stopPropagation()} />
+                    </Popconfirm>,
+                  ]}
+                >
+                  <Card.Meta
+                    avatar={<WalletOutlined style={{ fontSize: 28, color: ledger.color || '#1890ff' }} />}
+                    title={ledger.name}
+                    description={
+                      <div>
+                        <div>{ledger.description}</div>
+                        <Tag color="blue" style={{ marginTop: 8 }}>{ledger.base_currency}</Tag>
+                      </div>
+                    }
+                  />
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        )}
+      </ContentCard>
 
       <Modal
         title={editing ? '编辑账本' : '创建账本'}
@@ -171,7 +151,7 @@ const LedgersPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </PageLayout>
   );
 };
 

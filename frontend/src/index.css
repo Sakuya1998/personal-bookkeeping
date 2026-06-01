@@ -10,6 +10,22 @@ body {
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  background: var(--ui-app-bg);
+  font-variant-numeric: tabular-nums;
+}
+
+:root {
+  --ui-radius: 10px;
+  --ui-radius-modal: 12px;
+  --ui-space-8: 8px;
+  --ui-space-12: 12px;
+  --ui-space-16: 16px;
+  --ui-space-24: 24px;
+  --ui-space-32: 32px;
+  --ui-page-max-width: 1200px;
+  --ui-page-padding: 24px;
+  --ui-page-padding-mobile: 16px;
+  --ui-app-bg: #f5f6f8;
 }
 
 #root {
@@ -17,8 +33,47 @@ body {
   min-height: 100dvh; /* dynamic viewport height for mobile */
 }
 
+.ui-page {
+  max-width: var(--ui-page-max-width);
+  margin: 0 auto;
+  padding: var(--ui-page-padding);
+}
+
+.ui-pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-16);
+  margin-bottom: var(--ui-space-16);
+}
+
+.ui-pageTitle {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ui-pageDesc {
+  font-size: 12px;
+  line-height: 20px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 4px;
+}
+
+.ui-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ui-space-12);
+}
+
 /* Mobile: prevent horizontal scroll, tighten card padding */
 @media (max-width: 768px) {
+  .ui-page {
+    padding: var(--ui-page-padding-mobile);
+  }
   .ant-card-body {
     padding: 12px !important;
   }

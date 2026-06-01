@@ -5,6 +5,7 @@ import { ConfigProvider, App as AntApp } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
+import { antdTheme } from './theme/antdTheme';
 import { useAppStore } from './store/appStore';
 import ErrorBoundary from './components/ErrorBoundary';
 import AuthEventBridge from './components/AuthEventBridge';
@@ -37,7 +38,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 const App: React.FC = () => {
   return (
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider locale={zhCN} theme={antdTheme}>
       <AntApp>
         <BrowserRouter>
           <AuthEventBridge />

@@ -55,8 +55,8 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'u' } });
-    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'p' } });
+    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'u' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'p' } });
     fireEvent.click(screen.getByRole('button', { name: /登\s*录/ }));
 
     await waitFor(() => {
@@ -80,8 +80,8 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'u' } });
-    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'p' } });
+    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'u' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'p' } });
     fireEvent.click(screen.getByRole('button', { name: /登\s*录/ }));
 
     await waitFor(() => {
