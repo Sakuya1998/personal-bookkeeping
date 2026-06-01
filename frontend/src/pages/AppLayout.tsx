@@ -37,11 +37,13 @@ const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const pageTitle = routeTitleMap[location.pathname]
-    || Object.entries(routeTitleMap).find(([path]) => path !== '/' && location.pathname.startsWith(path))?.[1]
-    || '个人记账';
+  const isCalendarView = /^\/ledgers\/[^/]+\/calendar$/.test(location.pathname);
 
-  const contentHandlesOwnLayout = location.pathname === '/' || location.pathname.startsWith('/transactions');
+  const pageTitle = isCalendarView
+    ? '日历视图'
+    : routeTitleMap[location.pathname]
+      || Object.entries(routeTitleMap).find(([path]) => path !== '/' && location.pathname.startsWith(path))?.[1]
+      || '个人记账';
 
   useEffect(() => {
     if (!token) { navigate('/login'); return; }
@@ -108,7 +110,13 @@ const AppLayout: React.FC = () => {
             {ledgers.length > 0 && (
               <Select
                 value={currentLedger?.id}
-                onChange={(id) => setCurrentLedger(ledgers.find(l => l.id === id) || null)}
+                onChange={(id) => {
+                  const ledger = ledgers.find((l) => l.id === id) || null;
+                  setCurrentLedger(ledger);
+                  if (isCalendarView) {
+                    navigate(`/ledgers/${id}/calendar`);
+                  }
+                }}
                 style={{ width: 180 }}
                 options={ledgers.map(l => ({ label: `${l.icon || ''} ${l.name}`, value: l.id }))}
                 size="small"
@@ -120,11 +128,7 @@ const AppLayout: React.FC = () => {
           </div>
         </Header>
         <Content style={{ padding: 0 }}>
-          {contentHandlesOwnLayout ? <Outlet /> : (
-            <div className="ui-page">
-              <Outlet />
-            </div>
-          )}
+          <Outlet />
         </Content>
       </Layout>
     </Layout>

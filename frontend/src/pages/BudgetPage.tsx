@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Card, Table, Button, Modal, Form, Select, InputNumber,
+  Table, Button, Modal, Form, Select, InputNumber,
   message, Popconfirm, Space, Row, Col, Progress, Skeleton, Empty, Tag, DatePicker,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined, FundOutlined } from '@ant-design/icons';
@@ -9,6 +9,10 @@ import client from '../api/client';
 import { ApiResponse, Budget, BudgetStatusItem, Category } from '../api/types';
 import { useAppStore } from '../store/appStore';
 import { formatCurrency } from '../utils/currency';
+import PageLayout from '../components/layout/PageLayout';
+import PageTitle from '../components/layout/PageTitle';
+import PageToolbar from '../components/layout/PageToolbar';
+import ContentCard from '../components/layout/ContentCard';
 
 const BudgetPage: React.FC = () => {
   const { currentLedger } = useAppStore();
@@ -112,11 +116,67 @@ const BudgetPage: React.FC = () => {
 
   const formatPct = (pct: number) => `${Math.min(pct, 999).toFixed(1)}%`;
 
+  const getColor = (pct: number) => {
+    if (pct >= 100) return '#ff4d4f';
+    if (pct >= 80) return '#faad14';
+    return '#52c41a';
+  };
+
+  const statusColumns = [
+    {
+      title: '分类',
+      key: 'category',
+      width: 160,
+      render: (_: unknown, s: BudgetStatusItem) => (
+        <span>
+          {s.icon} {s.name || '全部支出'}
+        </span>
+      ),
+    },
+    {
+      title: <div style={{ textAlign: 'right' }}>已用 / 预算</div>,
+      key: 'amount',
+      align: 'right' as const,
+      width: 200,
+      render: (_: unknown, s: BudgetStatusItem) => {
+        const color = getColor(s.percentage);
+        return (
+          <span style={{ color, fontWeight: 600 }}>
+            {formatCurrency(s.spent, 'CNY')} / {formatCurrency(s.budget, 'CNY')}
+          </span>
+        );
+      },
+    },
+    {
+      title: <div style={{ textAlign: 'right' }}>执行</div>,
+      key: 'progress',
+      align: 'right' as const,
+      render: (_: unknown, s: BudgetStatusItem) => {
+        const color = getColor(s.percentage);
+        return (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+            <Progress
+              percent={s.percentage}
+              strokeColor={color}
+              showInfo={false}
+              size="small"
+              style={{ width: 160, margin: 0 }}
+            />
+            <span style={{ width: 72, textAlign: 'right', fontWeight: 600, color }}>
+              {formatPct(s.percentage)}
+            </span>
+          </div>
+        );
+      },
+    },
+  ];
+
   return (
-    <div>
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Row justify="space-between" align="middle">
-          <Col>
+    <PageLayout
+      header={<PageTitle title="预算" description={currentLedger ? `当前账本：${currentLedger.name}` : undefined} />}
+      toolbar={(
+        <PageToolbar
+          left={(
             <Space>
               <DatePicker
                 picker="month"
@@ -125,76 +185,53 @@ const BudgetPage: React.FC = () => {
                 allowClear={false}
               />
             </Space>
+          )}
+          right={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增预算</Button>}
+        />
+      )}
+    >
+      {!currentLedger ? (
+        <Empty description="暂无账本" />
+      ) : (
+        <Row gutter={16}>
+          <Col xs={24} lg={14} style={{ marginBottom: 16 }}>
+            <ContentCard title={<><FundOutlined /> 预算执行状态</>}>
+              {loading && status.length === 0 ? (
+                <Skeleton active paragraph={{ rows: 4 }} />
+              ) : status.length === 0 ? (
+                <Empty description="本月暂无预算" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              ) : (
+                <Table
+                  dataSource={status}
+                  columns={statusColumns}
+                  rowKey={(r) => r.budget_id || r.name || 'all'}
+                  pagination={false}
+                  size="small"
+                />
+              )}
+            </ContentCard>
           </Col>
-          <Col>
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增预算</Button>
+
+          <Col xs={24} lg={10} style={{ marginBottom: 16 }}>
+            <ContentCard title="预算设置">
+              {loading && budgets.length === 0 ? (
+                <Skeleton active paragraph={{ rows: 3 }} />
+              ) : budgets.length === 0 ? (
+                <Empty description="暂无预算设置" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              ) : (
+                <Table
+                  dataSource={budgets}
+                  columns={budgetColumns}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={false}
+                  size="small"
+                />
+              )}
+            </ContentCard>
           </Col>
         </Row>
-      </Card>
-
-      <Row gutter={16}>
-        {/* Budget status */}
-        <Col xs={24} lg={14} style={{ marginBottom: 16 }}>
-          <Card title={<><FundOutlined /> 预算执行状态</>}>
-            {loading && status.length === 0 ? (
-              <Skeleton active paragraph={{ rows: 4 }} />
-            ) : status.length === 0 ? (
-              <Empty description="本月暂无预算" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            ) : (
-              status.map((s, idx) => {
-                const over80 = s.percentage >= 80;
-                const over100 = s.percentage >= 100;
-                const color = over100 ? '#ff4d4f' : over80 ? '#faad14' : '#52c41a';
-                return (
-                  <div key={s.budget_id || idx} style={{ marginBottom: 16 }}>
-                    <Row justify="space-between" style={{ marginBottom: 4 }}>
-                      <Col>
-                        <span>
-                          {s.icon} {s.name || '全部支出'}
-                        </span>
-                      </Col>
-                      <Col>
-                        <span style={{ color }}>
-                          {formatCurrency(s.spent, 'CNY')} / {formatCurrency(s.budget, 'CNY')}
-                        </span>
-                        <span style={{ marginLeft: 8, fontWeight: 600, color }}>
-                          {formatPct(s.percentage)}
-                        </span>
-                      </Col>
-                    </Row>
-                    <Progress
-                      percent={s.percentage}
-                      strokeColor={color}
-                      showInfo={false}
-                      size="small"
-                    />
-                  </div>
-                );
-              })
-            )}
-          </Card>
-        </Col>
-
-        {/* Budget list */}
-        <Col xs={24} lg={10} style={{ marginBottom: 16 }}>
-          <Card title="预算设置">
-            {loading && budgets.length === 0 ? (
-              <Skeleton active paragraph={{ rows: 3 }} />
-            ) : budgets.length === 0 ? (
-              <Empty description="暂无预算设置" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            ) : (
-              <Table
-                dataSource={budgets}
-                columns={budgetColumns}
-                rowKey="id"
-                loading={loading}
-                pagination={false}
-                size="small"
-              />
-            )}
-          </Card>
-        </Col>
-      </Row>
+      )}
 
       {/* Create/Edit Modal */}
       <Modal
@@ -217,7 +254,7 @@ const BudgetPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </PageLayout>
   );
 };
 

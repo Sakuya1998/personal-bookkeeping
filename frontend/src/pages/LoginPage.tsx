@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, Form, Input, Button, Tabs, message } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import client from '../api/client';
@@ -9,11 +9,19 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 const LoginPage: React.FC = () => {
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
+  const mountedRef = useRef(true);
   const { setToken, setUser } = useAppStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const next = searchParams.get('next') || '/';
   const safeNext = next.startsWith('/') ? next : '/';
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const onLogin = async (values: { username: string; password: string }) => {
     setLoading(true);
@@ -27,7 +35,7 @@ const LoginPage: React.FC = () => {
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || '登录失败');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
 
@@ -43,7 +51,7 @@ const LoginPage: React.FC = () => {
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || '注册失败');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
 
