@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAppStore } from '../store/appStore';
 
 const client = axios.create({
   baseURL: '/api/v1',
@@ -6,22 +7,38 @@ const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = useAppStore.getState().token;
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers = config.headers ?? {};
+    (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+let lastUnauthorizedAt = 0;
 
 client.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      useAppStore.getState().logout();
+
+      const now = Date.now();
+      if (now - lastUnauthorizedAt > 1000) {
+        lastUnauthorizedAt = now;
+        window.dispatchEvent(
+          new CustomEvent('auth:unauthorized', {
+            detail: { next: window.location.pathname + window.location.search },
+          }),
+        );
+      }
     }
     return Promise.reject(err);
   },
 );
+
+export function resetUnauthorizedHandlingForTests() {
+  lastUnauthorizedAt = 0;
+}
 
 export default client;

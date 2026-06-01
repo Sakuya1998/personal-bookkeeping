@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Card, Button, Row, Col, Select, Spin, Empty, Tag } from 'antd';
+import { Card, Button, Row, Col, Spin, Empty, Tag } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import client from '../api/client';
@@ -7,6 +7,10 @@ import { ApiResponse, DailyTransactionItem, Transaction } from '../api/types';
 import { useAppStore } from '../store/appStore';
 import { formatCurrency } from '../utils/currency';
 import dayjs, { Dayjs } from 'dayjs';
+import PageLayout from '../components/layout/PageLayout';
+import PageTitle from '../components/layout/PageTitle';
+import PageToolbar from '../components/layout/PageToolbar';
+import ContentCard from '../components/layout/ContentCard';
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -20,19 +24,22 @@ const CalendarViewPage: React.FC = () => {
   const [dayTxns, setDayTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const ledgerId = currentLedger?.id;
+  const urlLedgerId = ledger_id || '';
 
-  // Sync ledger from URL param
+  const ledgerFromUrl = useMemo(() => {
+    if (!urlLedgerId) return null;
+    return ledgers.find((l) => l.id === urlLedgerId) || null;
+  }, [ledgers, urlLedgerId]);
+
   useEffect(() => {
-    if (ledger_id && ledgers.length > 0 && currentLedger?.id !== ledger_id) {
-      const ledger = ledgers.find((l) => l.id === ledger_id);
-      if (ledger) setCurrentLedger(ledger);
-    }
-  }, [ledger_id, ledgers, currentLedger, setCurrentLedger]);
+    if (!ledgerFromUrl) return;
+    if (currentLedger?.id === urlLedgerId) return;
+    setCurrentLedger(ledgerFromUrl);
+  }, [currentLedger?.id, ledgerFromUrl, setCurrentLedger, urlLedgerId]);
 
   // Fetch daily data — defer all setState to microtasks
   useEffect(() => {
-    if (!ledgerId) return;
+    if (!urlLedgerId) return;
     queueMicrotask(() => {
       setLoading(true);
       setDailyData([]);
@@ -41,20 +48,20 @@ const CalendarViewPage: React.FC = () => {
     });
     client
       .get<ApiResponse<DailyTransactionItem[]>>(
-        `/ledgers/${ledgerId}/daily-transactions?year=${currentMonth.year()}&month=${currentMonth.month() + 1}`,
+        `/ledgers/${urlLedgerId}/daily-transactions?year=${currentMonth.year()}&month=${currentMonth.month() + 1}`,
       )
       .then((res) => setDailyData(res.data.data || []))
       .catch(err => console.error('获取每日数据失败:', err))
       .finally(() => setLoading(false));
-  }, [ledgerId, currentMonth]);
+  }, [urlLedgerId, currentMonth]);
 
   // Fetch transactions for selected date
   const handleDateClick = (dateStr: string) => {
-    if (!ledgerId || !dateStr) return;
+    if (!urlLedgerId || !dateStr) return;
     setSelectedDate(dateStr);
     client
       .get<ApiResponse<{ items: Transaction[] }>>(
-        `/ledgers/${ledgerId}/transactions?start_date=${dateStr}&end_date=${dateStr}&page_size=50`,
+        `/ledgers/${urlLedgerId}/transactions?start_date=${dateStr}&end_date=${dateStr}&page_size=50`,
       )
       .then((res) => setDayTxns(res.data.data?.items || []))
       .catch(err => console.error('获取日期交易失败:', err));
@@ -123,38 +130,31 @@ const CalendarViewPage: React.FC = () => {
 
   const selectedItem = selectedDate ? dateMap.get(selectedDate) : undefined;
 
-  if (!currentLedger) {
-    return <Empty description="请先选择账本" />;
+  if (!urlLedgerId || !ledgerFromUrl) {
+    return (
+      <PageLayout header={<PageTitle title="日历视图" />}>
+        <Empty description="账本不存在或未加载" />
+      </PageLayout>
+    );
   }
 
   return (
-    <div>
-      {/* Ledger selector + month navigation */}
-      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-        <Col>
-          <Select
-            value={currentLedger.id}
-            onChange={(id) => {
-              const ledger = ledgers.find((l) => l.id === id);
-              if (ledger) setCurrentLedger(ledger);
-            }}
-            style={{ width: 200 }}
-            options={ledgers.map((l) => ({ label: `${l.icon || ''} ${l.name}`, value: l.id }))}
-          />
-        </Col>
-        <Col>
-          <Button icon={<LeftOutlined />} onClick={prevMonth} />
-          <span style={{ margin: '0 16px', fontSize: 16, fontWeight: 600, verticalAlign: 'middle' }}>
-            {currentMonth.format('YYYY 年 M 月')}
-          </span>
-          <Button icon={<RightOutlined />} onClick={nextMonth} />
-        </Col>
-      </Row>
-
+    <PageLayout
+      header={<PageTitle title="日历视图" description={`当前账本：${ledgerFromUrl.name}`} />}
+      toolbar={(
+        <PageToolbar
+          left={<span style={{ fontSize: 16, fontWeight: 600 }}>{currentMonth.format('YYYY 年 M 月')}</span>}
+          right={(
+            <>
+              <Button icon={<LeftOutlined />} onClick={prevMonth} />
+              <Button icon={<RightOutlined />} onClick={nextMonth} />
+            </>
+          )}
+        />
+      )}
+    >
       <Spin spinning={loading}>
-        {/* Calendar grid */}
-        <Card>
-          {/* Weekday headers */}
+        <ContentCard>
           <Row style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: 8, marginBottom: 8 }}>
             {WEEKDAYS.map((wd) => (
               <Col span={3} key={wd} style={{ textAlign: 'center', fontWeight: 600, padding: '4px 0' }}>
@@ -163,7 +163,6 @@ const CalendarViewPage: React.FC = () => {
             ))}
           </Row>
 
-          {/* Calendar rows */}
           {[0, 1, 2, 3, 4, 5].map((week) => (
             <Row key={week} style={{ minHeight: 90 }}>
               {calendarCells.slice(week * 7, week * 7 + 7).map((cell) => (
@@ -186,10 +185,10 @@ const CalendarViewPage: React.FC = () => {
                   {cell.item && (
                     <div style={{ fontSize: 13, lineHeight: '18px' }}>
                       {cell.item.income > 0 && (
-                        <div style={{ color: '#52c41a' }}>+{formatCurrency(cell.item.income, currentLedger.base_currency)}</div>
+                        <div style={{ color: '#52c41a' }}>+{formatCurrency(cell.item.income, ledgerFromUrl.base_currency)}</div>
                       )}
                       {cell.item.expense > 0 && (
-                        <div style={{ color: '#ff4d4f' }}>-{formatCurrency(cell.item.expense, currentLedger.base_currency)}</div>
+                        <div style={{ color: '#ff4d4f' }}>-{formatCurrency(cell.item.expense, ledgerFromUrl.base_currency)}</div>
                       )}
                       {cell.item.count > 1 && (
                         <div style={{ fontSize: 11, color: '#bbb' }}>{cell.item.count} 笔</div>
@@ -200,12 +199,11 @@ const CalendarViewPage: React.FC = () => {
               ))}
             </Row>
           ))}
-        </Card>
+        </ContentCard>
 
-        {/* Selected day details */}
         {selectedDate && (
           <Card
-            title={`${selectedDate} 交易详情${selectedItem ? ` — 收入 ${formatCurrency(selectedItem.income, currentLedger.base_currency)} / 支出 ${formatCurrency(selectedItem.expense, currentLedger.base_currency)}` : ''}`}
+            title={`${selectedDate} 交易详情${selectedItem ? ` — 收入 ${formatCurrency(selectedItem.income, ledgerFromUrl.base_currency)} / 支出 ${formatCurrency(selectedItem.expense, ledgerFromUrl.base_currency)}` : ''}`}
             style={{ marginTop: 16 }}
           >
             {dayTxns.length === 0 ? (
@@ -236,7 +234,7 @@ const CalendarViewPage: React.FC = () => {
                     }}
                   >
                     {txn.type === 'income' ? '+' : '-'}
-                    {formatCurrency(txn.base_amount, currentLedger.base_currency)}
+                    {formatCurrency(txn.base_amount, ledgerFromUrl.base_currency)}
                   </span>
                 </div>
               ))
@@ -244,7 +242,7 @@ const CalendarViewPage: React.FC = () => {
           </Card>
         )}
       </Spin>
-    </div>
+    </PageLayout>
   );
 };
 

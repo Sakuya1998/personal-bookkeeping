@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Card, Table, Button, Modal, Form, Input, Select, DatePicker,
-  InputNumber, Tag, Space, message, Popconfirm, Switch, Row, Col, Skeleton, Empty,
+  Table, Button, Modal, Form, Input, Select, DatePicker,
+  InputNumber, Tag, Space, message, Popconfirm, Switch, Row, Col, Skeleton, Empty, Divider,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -9,6 +9,10 @@ import client from '../api/client';
 import { ApiResponse, RecurringRule, Category } from '../api/types';
 import { useAppStore } from '../store/appStore';
 import { CURRENCIES, formatCurrency } from '../utils/currency';
+import PageLayout from '../components/layout/PageLayout';
+import PageTitle from '../components/layout/PageTitle';
+import PageToolbar from '../components/layout/PageToolbar';
+import ContentCard from '../components/layout/ContentCard';
 
 const FREQ_OPTIONS = [
   { label: '每天', value: 'daily' },
@@ -155,35 +159,35 @@ const RecurringPage: React.FC = () => {
   const catOptions = categories.map((c) => ({ label: `${c.icon || ''} ${c.name}`, value: c.id }));
 
   return (
-    <div>
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Row justify="space-between" align="middle">
-          <Col>
-            <Space>
-              <SyncOutlined spin={loading} />
-              <span style={{ color: '#999' }}>周期性交易会自动在指定日期生成记账记录</span>
-            </Space>
-          </Col>
-          <Col>
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增规则</Button>
-          </Col>
-        </Row>
-      </Card>
-
-      {loading && rules.length === 0 ? (
-        <Skeleton active paragraph={{ rows: 6 }} />
-      ) : rules.length === 0 ? (
-        <Empty description="暂无周期性规则" />
-      ) : (
-        <Table
-          dataSource={rules}
-          columns={columns}
-          rowKey="id"
-          loading={loading}
-          pagination={false}
-          size="small"
+    <PageLayout
+      header={<PageTitle title="周期规则" description="周期性交易会自动在指定日期生成记账记录" />}
+      toolbar={(
+        <PageToolbar
+          left={(
+            <Button icon={<SyncOutlined spin={loading} />} onClick={() => { loadRules(); }} disabled={loading}>
+              刷新
+            </Button>
+          )}
+          right={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增规则</Button>}
         />
       )}
+    >
+      <ContentCard>
+        {loading && rules.length === 0 ? (
+          <Skeleton active paragraph={{ rows: 6 }} />
+        ) : rules.length === 0 ? (
+          <Empty description="暂无周期性规则" />
+        ) : (
+          <Table
+            dataSource={rules}
+            columns={columns}
+            rowKey="id"
+            loading={loading}
+            pagination={false}
+            size="small"
+          />
+        )}
+      </ContentCard>
 
       <Modal
         title={editing ? '编辑周期性规则' : '新增周期性规则'}
@@ -193,6 +197,7 @@ const RecurringPage: React.FC = () => {
         width={560}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Divider titlePlacement="left" style={{ marginTop: 0 }}>基础信息</Divider>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="type" label="类型" rules={[{ required: true }]}>
@@ -214,6 +219,11 @@ const RecurringPage: React.FC = () => {
             <Select options={CURRENCIES.map((c) => ({ label: `${c.symbol} ${c.code}`, value: c.code }))} />
           </Form.Item>
 
+          <Form.Item name="description" label="描述">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+
+          <Divider titlePlacement="left">规则</Divider>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="frequency" label="频率" rules={[{ required: true }]}>
@@ -239,14 +249,6 @@ const RecurringPage: React.FC = () => {
             </Form.Item>
           )}
 
-          <Form.Item name="description" label="描述">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-
-          <Form.Item name="tags" label="标签">
-            <Select mode="tags" placeholder="输入标签后回车" />
-          </Form.Item>
-
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="start_date" label="开始日期" rules={[{ required: true }]}>
@@ -260,6 +262,11 @@ const RecurringPage: React.FC = () => {
             </Col>
           </Row>
 
+          <Divider titlePlacement="left">高级</Divider>
+          <Form.Item name="tags" label="标签">
+            <Select mode="tags" placeholder="输入标签后回车" />
+          </Form.Item>
+
           {editing && (
             <Form.Item name="is_active" label="启用" valuePropName="checked">
               <Switch />
@@ -267,7 +274,7 @@ const RecurringPage: React.FC = () => {
           )}
         </Form>
       </Modal>
-    </div>
+    </PageLayout>
   );
 };
 

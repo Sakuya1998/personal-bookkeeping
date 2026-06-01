@@ -25,16 +25,6 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,json}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https?:\/\/.*\/api\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
-            },
-          },
-        ],
       },
     }),
   ],
@@ -48,7 +38,7 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 400,
-    rolldownOptions: {
+    rollupOptions: {
       output: {
         manualChunks: (id: string) => {
           if (id.includes('node_modules/echarts')) return 'echarts';

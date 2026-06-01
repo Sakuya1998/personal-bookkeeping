@@ -103,14 +103,12 @@ describe('API client', () => {
   });
 
   describe('response error handler', () => {
-    it('removes token and redirects to /login on 401', async () => {
+    it('removes token and dispatches auth:unauthorized on 401', async () => {
       localStorage.setItem('token', 'should-be-cleared');
-      await import('../../api/client');
+      window.history.pushState({}, '', '/transactions?x=1');
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
-      // Mock window.location.href
-      const originalLocation = window.location;
-      delete (window as any).location;
-      (window as any).location = { href: '' };
+      await import('../../api/client');
 
       const error = {
         response: { status: 401 },
@@ -120,10 +118,12 @@ describe('API client', () => {
 
       await expect(responseErrorHandler!(error)).rejects.toBe(error);
       expect(localStorage.getItem('token')).toBeNull();
-      expect(window.location.href).toBe('/login');
 
-      // Restore location
-      (window as any).location = originalLocation;
+      expect(dispatchSpy).toHaveBeenCalledTimes(1);
+      const dispatched = dispatchSpy.mock.calls[0][0] as CustomEvent<{ next?: string }>;
+      expect(dispatched.type).toBe('auth:unauthorized');
+      expect(dispatched.detail?.next).toBe('/transactions?x=1');
+      dispatchSpy.mockRestore();
     });
 
     it('does not redirect or clear token on non-401 errors', async () => {

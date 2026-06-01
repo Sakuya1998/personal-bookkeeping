@@ -13,6 +13,9 @@ import dayjs from 'dayjs';
 import client from '../api/client';
 import { ApiResponse, LedgerSummary, MonthlyTrendItem, CategoryBreakdownItem } from '../api/types';
 import { useAppStore } from '../store/appStore';
+import PageLayout from '../components/layout/PageLayout';
+import PageTitle from '../components/layout/PageTitle';
+import PageToolbar from '../components/layout/PageToolbar';
 
 const DashboardPage: React.FC = () => {
   const { currentLedger } = useAppStore();
@@ -137,9 +140,11 @@ const DashboardPage: React.FC = () => {
 
   if (!currentLedger) {
     return (
-      <Empty description="暂无账本">
-        <Button type="primary" onClick={() => navigate('/ledgers')}>创建账本</Button>
-      </Empty>
+      <PageLayout header={<PageTitle title="仪表盘" />}>
+        <Empty description="暂无账本">
+          <Button type="primary" onClick={() => navigate('/ledgers')}>创建账本</Button>
+        </Empty>
+      </PageLayout>
     );
   }
 
@@ -181,160 +186,165 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <Spin spinning={loading}>
-      {loading && !summary ? (
-        <>
-          <Row gutter={16} style={{ marginBottom: 24 }}>
-            {[1, 2, 3].map((i) => (
-              <Col span={8} key={i}>
-                <Card><Skeleton active paragraph={{ rows: 1 }} title={{ width: '60%' }} /></Card>
-              </Col>
-            ))}
-          </Row>
-          <Row gutter={16}>
-            <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
-              <Card title="月度收支趋势"><Skeleton active paragraph={{ rows: 6 }} /></Card>
-            </Col>
-            <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
-              <Card title="分类支出分布"><Skeleton active paragraph={{ rows: 6 }} /></Card>
-            </Col>
-          </Row>
-        </>
-      ) : (
-        <>
-          <Row gutter={16} style={{ marginBottom: 24 }}>
-            <Col span={8}>
-              <Card hoverable onClick={() => navigate('/transactions?type=income')}>
-                <Statistic
-                  title="总收入" value={summary?.total_income || 0} precision={2}
-                  prefix={<ArrowUpOutlined />} valueStyle={{ color: '#52c41a' }}
-                  suffix={currentLedger.base_currency}
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card hoverable onClick={() => navigate('/transactions?type=expense')}>
-                <Statistic
-                  title="总支出" value={summary?.total_expense || 0} precision={2}
-                  prefix={<ArrowDownOutlined />} valueStyle={{ color: '#ff4d4f' }}
-                  suffix={currentLedger.base_currency}
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card
-                extra={
-                  <Space size="small">
-                    <Button size="small" type="primary" icon={<FileTextOutlined />} onClick={() => setReportOpen(true)}>
-                      报表
-                    </Button>
-                    <Button size="small" icon={<DownloadOutlined />} onClick={() => setExportOpen(true)}>
-                      导出
-                    </Button>
-                  </Space>
-                }
-              >
-                <Statistic
-                  title="结余" value={summary?.balance || 0} precision={2}
-                  prefix={<WalletOutlined />}
-                  valueStyle={{ color: (summary?.balance || 0) >= 0 ? '#1890ff' : '#ff4d4f' }}
-                  suffix={currentLedger.base_currency}
-                />
-              </Card>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
-              <Card title="月度收支趋势">
-                {monthlyTrend.length > 0 ? (
-                  <ReactECharts option={trendOption} style={{ height: 320 }} />
-                ) : (
-                  <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                )}
-              </Card>
-            </Col>
-            <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
-              <Card title="分类支出分布">
-                {expenseItems.length > 0 ? (
-                  <ReactECharts option={ringOption} style={{ height: 320 }} />
-                ) : (
-                  <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                )}
-              </Card>
-            </Col>
-          </Row>
-        </>
+    <PageLayout
+      header={<PageTitle title="仪表盘" description={`当前账本：${currentLedger.name}`} />}
+      toolbar={(
+        <PageToolbar
+          right={(
+            <>
+              <Button type="primary" icon={<FileTextOutlined />} onClick={() => setReportOpen(true)}>
+                生成报表
+              </Button>
+              <Button icon={<DownloadOutlined />} onClick={() => setExportOpen(true)}>
+                导出
+              </Button>
+            </>
+          )}
+        />
       )}
+    >
+      <Spin spinning={loading}>
+        {loading && !summary ? (
+          <>
+            <Row gutter={16} style={{ marginBottom: 24 }}>
+              {[1, 2, 3].map((i) => (
+                <Col span={8} key={i}>
+                  <Card><Skeleton active paragraph={{ rows: 1 }} title={{ width: '60%' }} /></Card>
+                </Col>
+              ))}
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
+                <Card title="月度收支趋势"><Skeleton active paragraph={{ rows: 6 }} /></Card>
+              </Col>
+              <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
+                <Card title="分类支出分布"><Skeleton active paragraph={{ rows: 6 }} /></Card>
+              </Col>
+            </Row>
+          </>
+        ) : (
+          <>
+            <Row gutter={16} style={{ marginBottom: 24 }}>
+              <Col span={8}>
+                <Card hoverable onClick={() => navigate('/transactions?type=income')}>
+                  <Statistic
+                    title="总收入" value={summary?.total_income || 0} precision={2}
+                    prefix={<ArrowUpOutlined />} valueStyle={{ color: '#52c41a' }}
+                    suffix={currentLedger.base_currency}
+                  />
+                </Card>
+              </Col>
+              <Col span={8}>
+                <Card hoverable onClick={() => navigate('/transactions?type=expense')}>
+                  <Statistic
+                    title="总支出" value={summary?.total_expense || 0} precision={2}
+                    prefix={<ArrowDownOutlined />} valueStyle={{ color: '#ff4d4f' }}
+                    suffix={currentLedger.base_currency}
+                  />
+                </Card>
+              </Col>
+              <Col span={8}>
+                <Card>
+                  <Statistic
+                    title="结余" value={summary?.balance || 0} precision={2}
+                    prefix={<WalletOutlined />}
+                    valueStyle={{ color: (summary?.balance || 0) >= 0 ? '#1890ff' : '#ff4d4f' }}
+                    suffix={currentLedger.base_currency}
+                  />
+                </Card>
+              </Col>
+            </Row>
 
-      {/* Export modal */}
-      <Modal
-        title="导出数据"
-        open={exportOpen}
-        onOk={handleExport}
-        onCancel={() => setExportOpen(false)}
-        okText="开始导出"
-        cancelText="取消"
-      >
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <div>
-            <div style={{ marginBottom: 8 }}>导出格式</div>
-            <Select
-              value={exportFormat}
-              onChange={(v) => setExportFormat(v)}
-              style={{ width: '100%' }}
-              options={[
-                { label: 'CSV（Excel 兼容）', value: 'csv' },
-                { label: 'JSON', value: 'json' },
-              ]}
-            />
-          </div>
-          <div>
-            <div style={{ marginBottom: 8 }}>日期范围（可选，不选则导出全部）</div>
-            <DatePicker.RangePicker
-              style={{ width: '100%' }}
-              value={exportDateRange}
-              onChange={(dates) => setExportDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)}
-            />
-          </div>
-        </Space>
-      </Modal>
+            <Row gutter={16}>
+              <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
+                <Card title="月度收支趋势">
+                  {monthlyTrend.length > 0 ? (
+                    <ReactECharts option={trendOption} style={{ height: 320 }} />
+                  ) : (
+                    <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  )}
+                </Card>
+              </Col>
+              <Col xs={24} lg={12} style={{ marginBottom: 16 }}>
+                <Card title="分类支出分布">
+                  {expenseItems.length > 0 ? (
+                    <ReactECharts option={ringOption} style={{ height: 320 }} />
+                  ) : (
+                    <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  )}
+                </Card>
+              </Col>
+            </Row>
+          </>
+        )}
 
-      {/* Report modal */}
-      <Modal
-        title="生成财务报表"
-        open={reportOpen}
-        onOk={handleGenerateReport}
-        onCancel={() => setReportOpen(false)}
-        confirmLoading={reportLoading}
-        okText="生成 PDF"
-        cancelText="取消"
-      >
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <div>
-            <div style={{ marginBottom: 8 }}>周期类型</div>
-            <Select
-              value={reportPeriod}
-              onChange={(v) => setReportPeriod(v)}
-              style={{ width: '100%' }}
-              options={[
-                { label: '月度报表', value: 'monthly' },
-                { label: '季度报表', value: 'quarterly' },
-              ]}
-            />
-          </div>
-          <div>
-            <div style={{ marginBottom: 8 }}>{reportPeriod === 'monthly' ? '选择月份' : '选择季度起始月'}</div>
-            <DatePicker
-              picker={reportPeriod === 'monthly' ? 'month' : 'month'}
-              value={reportMonth}
-              onChange={(d) => d && setReportMonth(d)}
-              style={{ width: '100%' }}
-            />
-          </div>
-        </Space>
-      </Modal>
-    </Spin>
+        <Modal
+          title="导出数据"
+          open={exportOpen}
+          onOk={handleExport}
+          onCancel={() => setExportOpen(false)}
+          okText="开始导出"
+          cancelText="取消"
+        >
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div>
+              <div style={{ marginBottom: 8 }}>导出格式</div>
+              <Select
+                value={exportFormat}
+                onChange={(v) => setExportFormat(v)}
+                style={{ width: '100%' }}
+                options={[
+                  { label: 'CSV（Excel 兼容）', value: 'csv' },
+                  { label: 'JSON', value: 'json' },
+                ]}
+              />
+            </div>
+            <div>
+              <div style={{ marginBottom: 8 }}>日期范围（可选，不选则导出全部）</div>
+              <DatePicker.RangePicker
+                style={{ width: '100%' }}
+                value={exportDateRange}
+                onChange={(dates) => setExportDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)}
+              />
+            </div>
+          </Space>
+        </Modal>
+
+        <Modal
+          title="生成财务报表"
+          open={reportOpen}
+          onOk={handleGenerateReport}
+          onCancel={() => setReportOpen(false)}
+          confirmLoading={reportLoading}
+          okText="生成 PDF"
+          cancelText="取消"
+        >
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div>
+              <div style={{ marginBottom: 8 }}>周期类型</div>
+              <Select
+                value={reportPeriod}
+                onChange={(v) => setReportPeriod(v)}
+                style={{ width: '100%' }}
+                options={[
+                  { label: '月度报表', value: 'monthly' },
+                  { label: '季度报表', value: 'quarterly' },
+                ]}
+              />
+            </div>
+            <div>
+              <div style={{ marginBottom: 8 }}>{reportPeriod === 'monthly' ? '选择月份' : '选择季度起始月'}</div>
+              <DatePicker
+                picker={reportPeriod === 'monthly' ? 'month' : 'month'}
+                value={reportMonth}
+                onChange={(d) => d && setReportMonth(d)}
+                style={{ width: '100%' }}
+              />
+            </div>
+          </Space>
+        </Modal>
+      </Spin>
+    </PageLayout>
   );
 };
 
