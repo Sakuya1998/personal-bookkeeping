@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"personal-bookkeeping/internal/app/service"
+	"personal-bookkeeping/internal/infra/config"
+	"personal-bookkeeping/internal/infra/database"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -15,14 +17,6 @@ type ExchangeRateHandler struct {
 
 func NewExchangeRateHandler(svc *service.ExchangeRateService) *ExchangeRateHandler {
 	return &ExchangeRateHandler{svc: svc}
-}
-
-type CreateExchangeRateInput struct {
-	FromCurrency string  `json:"from_currency" binding:"required" example:"USD"`
-	ToCurrency   string  `json:"to_currency" binding:"required" example:"CNY"`
-	Rate         float64 `json:"rate" binding:"required,gt=0" example:"7.24"`
-	Date         string  `json:"date" example:"2024-01-15"`
-	Source       *string `json:"source" example:"bank-of-china"`
 }
 
 // List  godoc
@@ -48,33 +42,26 @@ func (h *ExchangeRateHandler) List(c *gin.Context) {
 	RespondJSON(c, http.StatusOK, rates)
 }
 
-// Create  godoc
-// @Summary      创建汇率（同日期+币种自动覆盖）
+// Sync  godoc
+// @Summary      手动同步最新汇率
+// @Description  从外部 API 拉取最新汇率并更新数据库
 // @Tags         exchange-rates
-// @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        input body CreateExchangeRateInput true "汇率信息"
-// @Success      201 {object} Response
-// @Router       /exchange-rates [post]
-func (h *ExchangeRateHandler) Create(c *gin.Context) {
-	var input CreateExchangeRateInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		BadRequest(c, err.Error())
+// @Success      200 {object} Response
+// @Router       /exchange-rates/sync [post]
+func (h *ExchangeRateHandler) Sync(c *gin.Context) {
+	cfg := config.Load()
+	if cfg == nil {
+		InternalError(c, "config not available")
 		return
 	}
 
-	rate, wasUpdated, err := h.svc.Create(input.FromCurrency, input.ToCurrency, input.Rate, input.Date, input.Source)
-	if err != nil {
-		InternalError(c, "failed to create exchange rate")
+	if err := service.UpdateExchangeRates(database.GetDB(), &cfg.ExchangeRate); err != nil {
+		InternalError(c, "sync failed: "+err.Error())
 		return
 	}
-
-	if wasUpdated {
-		RespondJSON(c, http.StatusOK, rate)
-	} else {
-		RespondJSON(c, http.StatusCreated, rate)
-	}
+	RespondJSON(c, http.StatusOK, gin.H{"message": "exchange rates synced"})
 }
 
 // Latest  godoc

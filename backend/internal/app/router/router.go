@@ -114,7 +114,7 @@ func Setup(r *gin.Engine, cfg *config.Config) {
 		// Exchange rates
 		rate := handler.NewExchangeRateHandler(service.NewExchangeRateService(s))
 		protected.GET("/exchange-rates", rate.List)
-		protected.POST("/exchange-rates", rate.Create)
+		protected.POST("/exchange-rates/sync", rate.Sync)
 		protected.GET("/exchange-rates/latest", rate.Latest)
 		protected.DELETE("/exchange-rates/:id", rate.Delete)
 

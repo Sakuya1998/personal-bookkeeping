@@ -9,6 +9,7 @@ import (
 	cch "personal-bookkeeping/internal/infra/cache"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm/clause"
 )
 
 // LatestRate 最新汇率 DTO
@@ -41,42 +42,42 @@ func (s *ExchangeRateService) List(date, from, to string) ([]models.ExchangeRate
 }
 
 // Create creates or updates an exchange rate.
+// Uses upsert on (from_currency, to_currency) — only the latest rate is kept per pair.
 // Returns (rate, wasUpdated, error).
 func (s *ExchangeRateService) Create(fromCurrency, toCurrency string, rate float64, date string, source *string) (*models.ExchangeRate, bool, error) {
 	if date == "" {
 		date = time.Now().Format("2006-01-02")
 	}
+	now := time.Now()
+	sourceStr := source
 
-	var existing models.ExchangeRate
-	result := s.DB.Where("from_currency = ? AND to_currency = ? AND date = ?",
-		fromCurrency, toCurrency, date).First(&existing)
-
-	if result.Error == nil {
-		// Update existing record
-		if err := s.DB.Model(&existing).Updates(map[string]interface{}{
-			"rate":   rate,
-			"source": source,
-		}).Error; err != nil {
-			return nil, false, fmt.Errorf("failed to update exchange rate: %w", err)
-		}
-		s.invalidateCache(fromCurrency, toCurrency, date)
-		return &existing, true, nil
-	}
-
-	// Create new record
 	newRate := models.ExchangeRate{
 		ID:           uuid.New(),
 		FromCurrency: fromCurrency,
 		ToCurrency:   toCurrency,
 		Rate:         rate,
 		Date:         date,
-		Source:       source,
+		Source:       sourceStr,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
-	if err := s.DB.Create(&newRate).Error; err != nil {
-		return nil, false, fmt.Errorf("failed to create exchange rate: %w", err)
+
+	err := s.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "from_currency"}, {Name: "to_currency"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"rate":       rate,
+			"date":       date,
+			"source":     sourceStr,
+			"updated_at": now,
+		}),
+	}).Create(&newRate).Error
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to upsert exchange rate: %w", err)
 	}
+
+	wasUpdated := s.DB.RowsAffected != 1
 	s.invalidateCache(fromCurrency, toCurrency, date)
-	return &newRate, false, nil
+	return &newRate, wasUpdated, nil
 }
 
 // Latest returns the latest exchange rate for each currency pair.

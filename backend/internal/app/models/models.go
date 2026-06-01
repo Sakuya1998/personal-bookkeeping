@@ -108,12 +108,13 @@ func (t *Transaction) BeforeCreate(tx *gorm.DB) error {
 // ExchangeRate 汇率
 type ExchangeRate struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	FromCurrency string    `gorm:"size:10;not null" json:"from_currency"`
-	ToCurrency   string    `gorm:"size:10;not null" json:"to_currency"`
+	FromCurrency string    `gorm:"size:10;not null;uniqueIndex:idx_exchange_rate_pair" json:"from_currency"`
+	ToCurrency   string    `gorm:"size:10;not null;uniqueIndex:idx_exchange_rate_pair" json:"to_currency"`
 	Rate         float64   `gorm:"type:decimal(18,8);not null" json:"rate"`
 	Date         string    `gorm:"type:date;not null" json:"date"`
 	Source       *string   `gorm:"size:50" json:"source"`
 	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 func (e *ExchangeRate) BeforeCreate(tx *gorm.DB) error {
