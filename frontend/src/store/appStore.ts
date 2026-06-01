@@ -1,11 +1,13 @@
 import { create } from 'zustand';
-import { User, Ledger } from '../api/types';
+import { User, Ledger, MemberRole } from '../api/types';
 
 interface AppState {
   user: User | null;
   token: string | null;
   currentLedger: Ledger | null;
+  currentRole: MemberRole | null;
   ledgers: Ledger[];
+  setCurrentRole: (role: MemberRole | null) => void;
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
   setCurrentLedger: (ledger: Ledger | null) => void;
@@ -17,6 +19,7 @@ export const useAppStore = create<AppState>((set) => ({
   user: null,
   token: localStorage.getItem('token'),
   currentLedger: null,
+  currentRole: null,
   ledgers: [],
   setUser: (user) => set({ user }),
   setToken: (token) => {
@@ -27,6 +30,7 @@ export const useAppStore = create<AppState>((set) => ({
     }
     set({ token });
   },
+  setCurrentRole: (role: MemberRole | null) => set({ currentRole: role }),
   setCurrentLedger: (ledger) => set({ currentLedger: ledger }),
   setLedgers: (ledgers) => {
     set({ ledgers });
@@ -38,6 +42,6 @@ export const useAppStore = create<AppState>((set) => ({
   },
   logout: () => {
     localStorage.removeItem('token');
-    set({ user: null, token: null, currentLedger: null });
+    set({ user: null, token: null, currentLedger: null, currentRole: null });
   },
 }));

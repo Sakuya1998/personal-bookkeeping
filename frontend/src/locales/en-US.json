@@ -170,6 +170,25 @@
     "updateSuccess": "Ledger updated successfully",
     "deleteConfirm": "Are you sure you want to delete this ledger? Related transactions will also be deleted."
   },
+  "members": {
+    "title": "Manage Members",
+    "invite": "Invite",
+    "invitePlaceholder": "Enter username to invite",
+    "inviteSuccess": "Invited successfully",
+    "removeSuccess": "Member removed",
+    "leaveSuccess": "You have left the ledger",
+    "leave": "Leave Ledger",
+    "leaveConfirm": "Are you sure you want to leave this ledger?",
+    "roleUpdateSuccess": "Role updated",
+    "username": "Username",
+    "role": "Role",
+    "owner": "Owner",
+    "admin": "Admin",
+    "member": "Member",
+    "joinedAt": "Joined",
+    "action": "Action",
+    "removeConfirm": "Remove {{username}}?"
+  },
   "categories": {
     "title": "Categories",
     "add": "Add Category",

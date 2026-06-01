@@ -11,6 +11,8 @@ import PageTitle from '../components/layout/PageTitle';
 import PageToolbar from '../components/layout/PageToolbar';
 import ContentCard from '../components/layout/ContentCard';
 import CurrencySelect from '../components/CurrencySelect';
+import MembersModal from '../components/MembersModal';
+import { TeamOutlined } from '@ant-design/icons';
 
 const LedgersPage: React.FC = () => {
   const { t } = useTranslation();
@@ -19,10 +21,16 @@ const LedgersPage: React.FC = () => {
   const [editing, setEditing] = useState<Ledger | null>(null);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [membersModalOpen, setMembersModalOpen] = useState(false);
+  const [membersModalLedgerId, setMembersModalLedgerId] = useState<string | null>(null);
 
-  const loadLedgers = useCallback(async () => {
+  const loadLedgers = useCallback(async (selectedId?: string) => {
     try {
       const res = await client.get<ApiResponse<Ledger[]>>('/ledgers');
+    // If a ledger was just selected and we have the new list, set its role
+    if (selectedId) {
+      setMembersModalLedgerId(selectedId);
+    }
       setLedgers(res.data.data);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
@@ -106,6 +114,7 @@ const LedgersPage: React.FC = () => {
                   onClick={() => setCurrentLedger(ledger)}
                   style={currentLedger?.id === ledger.id ? { border: '2px solid #1890ff' } : {}}
                   actions={[
+                    <TeamOutlined key="members" onClick={(e) => { e.stopPropagation(); setMembersModalLedgerId(ledger.id); setMembersModalOpen(true); }} />,
                     <EditOutlined key="edit" onClick={(e) => { e.stopPropagation(); openEdit(ledger); }} />,
                     <Popconfirm key="del" title={t('ledgers.deleteConfirm')} onConfirm={(e) => { e?.stopPropagation(); handleDelete(ledger.id); }}>
                       <DeleteOutlined onClick={(e) => e.stopPropagation()} />
@@ -118,7 +127,10 @@ const LedgersPage: React.FC = () => {
                     description={
                       <div>
                         <div>{ledger.description}</div>
-                        <Tag color="blue" style={{ marginTop: 8 }}>{ledger.base_currency}</Tag>
+                        <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <Tag color="blue">{ledger.base_currency}</Tag>
+                          <Tag icon={<TeamOutlined />} color="default">0 members</Tag>
+                        </div>
                       </div>
                     }
                   />
@@ -154,6 +166,11 @@ const LedgersPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+      <MembersModal
+        open={membersModalOpen}
+        ledgerId={membersModalLedgerId || ''}
+        onClose={() => { setMembersModalOpen(false); setMembersModalLedgerId(null); }}
+      />
     </PageLayout>
   );
 };

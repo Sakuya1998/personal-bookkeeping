@@ -134,10 +134,18 @@ func main() {
 		&models.ExchangeRate{},
 		&models.RecurringRule{},
 		&models.Budget{},
+		&models.LedgerMember{},
 	)
 
 	// Create performance indexes after tables exist
 	database.CreateIndexes()
+
+	// Migrate existing ledger owners into ledger_members table
+	svc := service.NewService()
+	memberSvc := service.NewMemberService(svc)
+	if err := memberSvc.MigrateLedgerOwnership(); err != nil {
+		slog.Warn("ledger member migration (non-fatal)", "error", err)
+	}
 
 	// Initialize exchange rate provider with DI-injected DB and cache
 	service.InitExchangeRateProvider(database.GetDB(), cch)

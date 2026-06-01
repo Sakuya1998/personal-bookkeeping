@@ -82,19 +82,32 @@ func Setup(r *gin.Engine, cfg *config.Config) {
 		protected.PUT("/auth/email", auth.ChangeEmail)
 
 		// Ledgers
-		ledger := handler.NewLedgerHandler(service.NewLedgerService(s))
-		protected.GET("/ledgers", ledger.List)
-		protected.POST("/ledgers", ledger.Create)
-		protected.GET("/ledgers/:ledger_id", ledger.Get)
-		protected.PUT("/ledgers/:ledger_id", ledger.Update)
-		protected.DELETE("/ledgers/:ledger_id", ledger.Delete)
-		protected.GET("/ledgers/:ledger_id/summary", ledger.Summary)
-		protected.GET("/ledgers/:ledger_id/monthly-trend", ledger.MonthlyTrend)
-		protected.GET("/ledgers/:ledger_id/category-breakdown", ledger.CategoryBreakdown)
-		protected.GET("/ledgers/:ledger_id/daily-transactions", ledger.DailyTransactions)
-		protected.GET("/ledgers/:ledger_id/tag-stats", ledger.TagStats)
-		protected.GET("/ledgers/:ledger_id/export", ledger.Export)
-		protected.GET("/ledgers/:ledger_id/tags", ledger.Tags)
+		ledgerSvc := service.NewLedgerService(s)
+		ledger := handler.NewLedgerHandler(ledgerSvc)
+		member := handler.NewMemberHandler(service.NewMemberService(s), ledgerSvc)
+		ledgerGroup := protected.Group("/ledgers")
+		ledgerGroup.Use(middleware.LedgerAccess(database.GetDB()))
+		{
+			ledgerGroup.GET("", ledger.List)
+			ledgerGroup.POST("", ledger.Create)
+			ledgerGroup.GET("/:ledger_id", ledger.Get)
+			ledgerGroup.PUT("/:ledger_id", ledger.Update)
+			ledgerGroup.DELETE("/:ledger_id", ledger.Delete)
+			ledgerGroup.GET("/:ledger_id/summary", ledger.Summary)
+			ledgerGroup.GET("/:ledger_id/monthly-trend", ledger.MonthlyTrend)
+			ledgerGroup.GET("/:ledger_id/category-breakdown", ledger.CategoryBreakdown)
+			ledgerGroup.GET("/:ledger_id/daily-transactions", ledger.DailyTransactions)
+			ledgerGroup.GET("/:ledger_id/tag-stats", ledger.TagStats)
+			ledgerGroup.GET("/:ledger_id/export", ledger.Export)
+			ledgerGroup.GET("/:ledger_id/tags", ledger.Tags)
+
+			// Member management
+			ledgerGroup.GET("/:ledger_id/members", member.ListMembers)
+			ledgerGroup.POST("/:ledger_id/members", member.Invite)
+			ledgerGroup.DELETE("/:ledger_id/members/:user_id", member.Remove)
+			ledgerGroup.PUT("/:ledger_id/members/:user_id", member.UpdateRole)
+			ledgerGroup.POST("/:ledger_id/leave", member.Leave)
+		}
 
 		// Categories
 		cat := handler.NewCategoryHandler(service.NewCategoryService(s))

@@ -73,7 +73,7 @@ type DailyTransactionItem struct {
 
 // ---------- LedgerService methods ----------
 
-// CreateLedger 创建账本。
+// CreateLedger 创建账本并自动添加创建者为 owner。。
 func (s *LedgerService) CreateLedger(userID uuid.UUID, name string, currency string, description, icon, color *string) (*models.Ledger, error) {
 	if currency == "" {
 		currency = "CNY"
@@ -92,13 +92,33 @@ func (s *LedgerService) CreateLedger(userID uuid.UUID, name string, currency str
 	if err := s.DB.Create(&ledger).Error; err != nil {
 		return nil, fmt.Errorf("failed to create ledger: %w", err)
 	}
+
+	// Auto-add creator as owner member
+	member := models.LedgerMember{
+		LedgerID: ledger.ID,
+		UserID:   userID,
+		Role:     models.RoleOwner,
+		JoinedAt: ledger.CreatedAt,
+	}
+	if err := s.DB.Create(&member).Error; err != nil {
+		return nil, fmt.Errorf("failed to add owner member: %w", err)
+	}
+
 	return &ledger, nil
 }
 
 // GetLedger 查询单个账本，返回 (ledger, nil) 或 (nil, ErrLedgerNotFound)。
+// 通过 member 表校验访问权限。
 func (s *LedgerService) GetLedger(id, userID uuid.UUID) (*models.Ledger, error) {
+	// Verify membership first
+	var memberCount int64
+	s.DB.Model(&models.LedgerMember{}).Where("ledger_id = ? AND user_id = ?", id, userID).Count(&memberCount)
+	if memberCount == 0 {
+		return nil, ErrLedgerNotFound
+	}
+
 	var ledger models.Ledger
-	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&ledger).Error; err != nil {
+	if err := s.DB.Where("id = ?", id).First(&ledger).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLedgerNotFound
 		}
@@ -107,10 +127,15 @@ func (s *LedgerService) GetLedger(id, userID uuid.UUID) (*models.Ledger, error) 
 	return &ledger, nil
 }
 
-// ListLedgers 查询用户的所有账本。
+// ListLedgers 查询用户的所有账本（通过 member 表）。
 func (s *LedgerService) ListLedgers(userID uuid.UUID) ([]models.Ledger, error) {
 	var ledgers []models.Ledger
-	if err := s.DB.Where("user_id = ?", userID).Order("sort_order asc, created_at desc").Find(&ledgers).Error; err != nil {
+	if err := s.DB.
+		Joins("JOIN ledger_members ON ledger_members.ledger_id = ledgers.id").
+		Where("ledger_members.user_id = ?", userID).
+		Preload("User").
+		Order("ledgers.sort_order asc, ledgers.created_at desc").
+		Find(&ledgers).Error; err != nil {
 		return nil, fmt.Errorf("failed to list ledgers: %w", err)
 	}
 	return ledgers, nil
@@ -118,9 +143,22 @@ func (s *LedgerService) ListLedgers(userID uuid.UUID) ([]models.Ledger, error) {
 
 // UpdateLedger 更新账本字段。
 // updates 可以包含：name, description, base_currency, icon, color, is_archived, sort_order。
+// 通过 member 表校验访问权限，仅 owner/admin 可更新。
 func (s *LedgerService) UpdateLedger(id, userID uuid.UUID, updates map[string]interface{}) (*models.Ledger, error) {
+	// Check membership and role
+	var member models.LedgerMember
+	if err := s.DB.Where("ledger_id = ? AND user_id = ?", id, userID).First(&member).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrLedgerNotFound
+		}
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+	if member.Role != models.RoleOwner && member.Role != models.RoleAdmin {
+		return nil, errors.New("only owner or admin can update the ledger")
+	}
+
 	var ledger models.Ledger
-	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&ledger).Error; err != nil {
+	if err := s.DB.Where("id = ?", id).First(&ledger).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrLedgerNotFound
 		}
@@ -140,6 +178,10 @@ func (s *LedgerService) UpdateLedger(id, userID uuid.UUID, updates map[string]in
 func (s *LedgerService) DeleteLedger(id, userID uuid.UUID) error {
 	err := s.DB.Transaction(func(tx *gorm.DB) error {
 		// 先删除关联表记录，再删账本（外键约束）
+		// Delete member records first
+		if err := tx.Where("ledger_id = ?", id).Delete(&models.LedgerMember{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("ledger_id = ?", id).Delete(&models.Transaction{}).Error; err != nil {
 			return err
 		}
@@ -153,7 +195,7 @@ func (s *LedgerService) DeleteLedger(id, userID uuid.UUID) error {
 			return err
 		}
 
-		result := tx.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Ledger{})
+		result := tx.Where("id = ?", id).Delete(&models.Ledger{})
 		if result.Error != nil {
 			return result.Error
 		}

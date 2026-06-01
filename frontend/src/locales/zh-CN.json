@@ -170,6 +170,25 @@
     "updateSuccess": "账本修改成功",
     "deleteConfirm": "确定删除该账本？相关交易也会被删除"
   },
+  "members": {
+    "title": "成员管理",
+    "invite": "邀请",
+    "invitePlaceholder": "输入用户名邀请",
+    "inviteSuccess": "邀请成功",
+    "removeSuccess": "已移除成员",
+    "leaveSuccess": "已退出账本",
+    "leave": "退出账本",
+    "leaveConfirm": "确定退出该账本？",
+    "roleUpdateSuccess": "角色已更新",
+    "username": "用户名",
+    "role": "角色",
+    "owner": "拥有者",
+    "admin": "管理员",
+    "member": "成员",
+    "joinedAt": "加入时间",
+    "action": "操作",
+    "removeConfirm": "移除 {{username}}？"
+  },
   "categories": {
     "title": "分类管理",
     "add": "新增分类",

@@ -168,3 +168,14 @@ export interface AuthResponse {
   token: string;
   user: User;
 }
+
+export interface LedgerMember {
+  id: string;
+  user_id: string;
+  username: string;
+  role: 'owner' | 'admin' | 'member';
+  joined_at: string;
+  created_at: string;
+}
+
+export type MemberRole = 'owner' | 'admin' | 'member';

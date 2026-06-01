@@ -176,3 +176,37 @@ func (b *Budget) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// ── LedgerMember ──
+
+// Role constants
+const (
+	RoleOwner  = "owner"
+	RoleAdmin  = "admin"
+	RoleMember = "member"
+)
+
+// LedgerMember 账本成员
+type LedgerMember struct {
+	ID        uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	LedgerID  uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:idx_ledger_user" json:"ledger_id"`
+	UserID    uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:idx_ledger_user" json:"user_id"`
+	Role      string     `gorm:"size:20;not null;default:member" json:"role"`
+	InvitedBy *uuid.UUID `gorm:"type:uuid" json:"invited_by,omitempty"`
+	JoinedAt  time.Time  `json:"joined_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+
+	User   User   `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Ledger Ledger `gorm:"foreignKey:LedgerID" json:"-"`
+}
+
+func (lm *LedgerMember) BeforeCreate(tx *gorm.DB) error {
+	if lm.ID == uuid.Nil {
+		lm.ID = uuid.New()
+	}
+	if lm.JoinedAt.IsZero() {
+		lm.JoinedAt = time.Now()
+	}
+	return nil
+}
