@@ -15,23 +15,33 @@ import (
 type ReportPeriod string
 
 const (
-	ReportMonthly  ReportPeriod = "monthly"
+	ReportMonthly   ReportPeriod = "monthly"
 	ReportQuarterly ReportPeriod = "quarterly"
+	ReportYearly    ReportPeriod = "yearly"
 )
 
 // ReportData 报表数据
 type ReportData struct {
 	LedgerName   string
-	Period       string // e.g. "2026-05"
-	PeriodLabel  string // e.g. "2026年5月"
+	Period       string // e.g. "2026-05" or "2026"
+	PeriodLabel  string // e.g. "2026年5月" or "2026年"
 	IncomeTotal  float64
 	ExpenseTotal float64
 	Balance      float64
+	SavingsRate  float64 // 储蓄率 (annual only)
 	PrevIncome   float64 // previous period for comparison
 	PrevExpense  float64
 	Categories   []CategorySummary
 	DailyAvg     float64
 	DaysInPeriod int
+	MonthlyBreakdown []MonthlyBreakdownRow // 月度细分 (annual only)
+}
+
+// MonthlyBreakdownRow 月度收支
+type MonthlyBreakdownRow struct {
+	Month   string  `json:"month"`
+	Income  float64 `json:"income"`
+	Expense float64 `json:"expense"`
 }
 
 // CategorySummary 分类汇总
@@ -45,8 +55,18 @@ type CategorySummary struct {
 
 // BuildReportData 从 DB 查询并组装报表数据
 func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPeriod, periodStr string) (*ReportData, error) {
-	// Parse period
-	year, month, err := parsePeriod(periodStr)
+	if period == "" {
+		period = ReportMonthly
+	}
+
+	var year, month int
+	var err error
+
+	if period == ReportYearly {
+		year, err = parseYear(periodStr)
+	} else {
+		year, month, err = parsePeriod(periodStr)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("invalid period %q: %w", periodStr, err)
 	}
@@ -66,6 +86,13 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 		quarterEnd := quarterStart.AddDate(0, 3, 0)
 		endDate = quarterEnd.Format("2006-01-02")
 		daysInPeriod = int(quarterEnd.Sub(quarterStart).Hours() / 24)
+	case ReportYearly:
+		startDate = fmt.Sprintf("%04d-01-01", year)
+		endDate = fmt.Sprintf("%04d-01-01", year+1)
+		daysInPeriod = 365
+		if isLeapYear(year) {
+			daysInPeriod = 366
+		}
 	}
 
 	// Previous period for comparison
@@ -76,6 +103,9 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 		prevEnd = startDate
 	case ReportQuarterly:
 		prevStart = time.Date(year, time.Month((month-1)/3*3+1-3), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+		prevEnd = startDate
+	case ReportYearly:
+		prevStart = fmt.Sprintf("%04d-01-01", year-1)
 		prevEnd = startDate
 	}
 
@@ -137,6 +167,32 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 		})
 	}
 
+	// Monthly breakdown (annual only)
+	var monthlyBreakdown []MonthlyBreakdownRow
+	if period == ReportYearly {
+		type monthRow struct {
+			Month   string
+			Income  float64
+			Expense float64
+		}
+		var monthRows []monthRow
+		db.Raw(`SELECT
+			to_char(transaction_date, 'YYYY-MM') AS month,
+			COALESCE(SUM(CASE WHEN type='income' THEN base_amount ELSE 0 END), 0) AS income,
+			COALESCE(SUM(CASE WHEN type='expense' THEN base_amount ELSE 0 END), 0) AS expense
+			FROM transactions
+			WHERE ledger_id=? AND user_id=? AND transaction_date>=? AND transaction_date<?
+			GROUP BY to_char(transaction_date, 'YYYY-MM')
+			ORDER BY month`, ledgerID, userID, startDate, endDate).Scan(&monthRows)
+		for _, r := range monthRows {
+			monthlyBreakdown = append(monthlyBreakdown, MonthlyBreakdownRow{
+				Month:   r.Month,
+				Income:  math.Round(r.Income*100) / 100,
+				Expense: math.Round(r.Expense*100) / 100,
+			})
+		}
+	}
+
 	// Period label
 	var periodLabel string
 	switch period {
@@ -145,6 +201,14 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 	case ReportQuarterly:
 		q := (month-1)/3 + 1
 		periodLabel = fmt.Sprintf("%d年第%d季度", year, q)
+	case ReportYearly:
+		periodLabel = fmt.Sprintf("%d年", year)
+	}
+
+	// Savings rate
+	savingsRate := 0.0
+	if incomeTotal > 0 {
+		savingsRate = (incomeTotal - expenseTotal) / incomeTotal * 100
 	}
 
 	dailyAvg := 0.0
@@ -159,11 +223,13 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 		IncomeTotal:  math.Round(incomeTotal*100) / 100,
 		ExpenseTotal: math.Round(expenseTotal*100) / 100,
 		Balance:      math.Round((incomeTotal-expenseTotal)*100) / 100,
+		SavingsRate:  math.Round(savingsRate*10) / 10,
 		PrevIncome:   math.Round(prevIncome*100) / 100,
 		PrevExpense:  math.Round(prevExpense*100) / 100,
 		Categories:   categories,
 		DailyAvg:     dailyAvg,
 		DaysInPeriod: daysInPeriod,
+		MonthlyBreakdown: monthlyBreakdown,
 	}, nil
 }
 
@@ -222,9 +288,44 @@ func GenerateReportPDF(data *ReportData) ([]byte, error) {
 	expenseChange := calcChange(data.ExpenseTotal, data.PrevExpense)
 	pdf.SetFont("Helvetica", "", 9)
 	pdf.SetTextColor(120, 120, 120)
-	pdf.CellFormat(pageW, 6, fmt.Sprintf("收入环比: %s  |  支出环比: %s  |  日均支出: ¥%.2f",
+	pdf.CellFormat(pageW, 6, fmt.Sprintf("收入同比: %s  |  支出同比: %s  |  日均支出: ¥%.2f",
 		incomeChange, expenseChange, data.DailyAvg), "", 1, "L", false, 0, "")
+
+	if data.SavingsRate > 0 {
+		pdf.CellFormat(pageW, 6, fmt.Sprintf("储蓄率: %.1f%%", data.SavingsRate), "", 1, "L", false, 0, "")
+	}
 	pdf.Ln(5)
+
+	// Monthly breakdown (annual only)
+	if len(data.MonthlyBreakdown) > 0 {
+		pdf.SetFont("Helvetica", "B", 13)
+		pdf.SetTextColor(50, 50, 50)
+		pdf.CellFormat(pageW, 8, "月度趋势", "", 1, "L", false, 0, "")
+		pdf.Ln(2)
+
+		mColW := pageW * 0.25
+		mAmtColW := pageW * 0.375
+
+		pdf.SetFont("Helvetica", "B", 9)
+		pdf.SetFillColor(240, 245, 255)
+		pdf.SetTextColor(50, 50, 50)
+		pdf.CellFormat(mColW, 6, "月份", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(mAmtColW, 6, "收入", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(mAmtColW, 6, "支出", "1", 1, "C", true, 0, "")
+
+		pdf.SetFont("Helvetica", "", 9)
+		pdf.SetFillColor(255, 255, 255)
+		for _, m := range data.MonthlyBreakdown {
+			pdf.SetTextColor(50, 50, 50)
+			pdf.CellFormat(mColW, 6, m.Month, "1", 0, "C", false, 0, "")
+			pdf.SetTextColor(82, 196, 26)
+			pdf.CellFormat(mAmtColW, 6, fmt.Sprintf("¥%.2f", m.Income), "1", 0, "R", false, 0, "")
+			pdf.SetTextColor(255, 77, 79)
+			pdf.CellFormat(mAmtColW, 6, fmt.Sprintf("¥%.2f", m.Expense), "1", 1, "R", false, 0, "")
+		}
+		pdf.SetTextColor(50, 50, 50)
+		pdf.Ln(5)
+	}
 
 	// Category breakdown
 	if len(data.Categories) > 0 {
@@ -272,7 +373,7 @@ func GenerateReportPDF(data *ReportData) ([]byte, error) {
 	// Footer
 	pdf.SetFont("Helvetica", "I", 8)
 	pdf.SetTextColor(180, 180, 180)
-	pdf.CellFormat(pageW, 10, fmt.Sprintf("生成时间: %s | Personal Bookkeeping v3.0",
+	pdf.CellFormat(pageW, 10, fmt.Sprintf("生成时间: %s | Personal Bookkeeping v4.0",
 		time.Now().Format("2006-01-02 15:04")), "", 1, "C", false, 0, "")
 
 	var buf bytes.Buffer
@@ -291,6 +392,18 @@ func parsePeriod(s string) (year, month int, err error) {
 		return 0, 0, fmt.Errorf("invalid month")
 	}
 	return
+}
+
+func parseYear(s string) (int, error) {
+	if len(s) != 4 {
+		return 0, fmt.Errorf("expected YYYY")
+	}
+	var year int
+	_, err := fmt.Sscanf(s, "%d", &year)
+	if err != nil || year < 2000 || year > 2100 {
+		return 0, fmt.Errorf("invalid year")
+	}
+	return year, nil
 }
 
 func calcChange(current, previous float64) string {
@@ -314,6 +427,10 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return string(runes[:maxLen-1]) + "…"
+}
+
+func isLeapYear(year int) bool {
+	return year%4 == 0 && (year%100 != 0 || year%400 == 0)
 }
 
 // BuildReportData builds report data using the service's DB instance.

@@ -33,7 +33,7 @@ const DashboardPage: React.FC = () => {
   // Report modal state
   const [reportOpen, setReportOpen] = useState(false);
   const [reportMonth, setReportMonth] = useState<dayjs.Dayjs>(dayjs());
-  const [reportPeriod, setReportPeriod] = useState<'monthly' | 'quarterly'>('monthly');
+  const [reportPeriod, setReportPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
@@ -116,7 +116,7 @@ const DashboardPage: React.FC = () => {
     if (!currentLedger) return;
     setReportLoading(true);
     try {
-      const date = reportMonth.format('YYYY-MM');
+      const date = reportPeriod === 'yearly' ? reportMonth.format('YYYY') : reportMonth.format('YYYY-MM');
       const res = await client.get(`/ledgers/${currentLedger.id}/report`, {
         params: { period: reportPeriod, date },
         responseType: 'blob',
@@ -329,13 +329,16 @@ const DashboardPage: React.FC = () => {
                 options={[
                   { label: '月度报表', value: 'monthly' },
                   { label: '季度报表', value: 'quarterly' },
+                  { label: '年度报表', value: 'yearly' },
                 ]}
               />
             </div>
             <div>
-              <div style={{ marginBottom: 8 }}>{reportPeriod === 'monthly' ? '选择月份' : '选择季度起始月'}</div>
+              <div style={{ marginBottom: 8 }}>
+                {reportPeriod === 'monthly' ? '选择月份' : reportPeriod === 'yearly' ? '选择年份' : '选择季度起始月'}
+              </div>
               <DatePicker
-                picker={reportPeriod === 'monthly' ? 'month' : 'month'}
+                picker={reportPeriod === 'yearly' ? 'year' : 'month'}
                 value={reportMonth}
                 onChange={(d) => d && setReportMonth(d)}
                 style={{ width: '100%' }}

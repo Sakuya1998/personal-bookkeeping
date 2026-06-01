@@ -38,11 +38,11 @@ func (h *ReportHandler) GenerateReport(c *gin.Context) {
 		period = "monthly"
 	}
 	if date == "" {
-		BadRequest(c, "date is required (YYYY-MM)")
+		BadRequest(c, "date is required (YYYY-MM for monthly/quarterly, YYYY for yearly)")
 		return
 	}
-	if period != "monthly" && period != "quarterly" {
-		BadRequest(c, "period must be monthly or quarterly")
+	if period != "monthly" && period != "quarterly" && period != "yearly" {
+		BadRequest(c, "period must be monthly, quarterly, or yearly")
 		return
 	}
 
@@ -86,7 +86,7 @@ func (h *ReportHandler) ReportPreview(c *gin.Context) {
 	date := c.Query("date")
 
 	if date == "" {
-		BadRequest(c, "date is required (YYYY-MM)")
+		BadRequest(c, "date is required (YYYY-MM for monthly/quarterly, YYYY for yearly)")
 		return
 	}
 	if period == "" {
