@@ -10,7 +10,7 @@
 | 后端 | Go 1.26 + Gin + GORM |
 | 数据库 | PostgreSQL |
 | 缓存 | Memory / Redis / Tiered (L1+L2) |
-| 队列 | Redis Streams / Kafka |
+| 队列 | Inmemory / Redis Streams / Kafka |
 | 可观测性 | OpenTelemetry + Prometheus |
 | 部署 | Docker Compose + Nginx |
 
@@ -21,10 +21,10 @@
 git clone https://github.com/Sakuya1998/personal-bookkeeping.git
 cd personal-bookkeeping
 
-# 一键初始化（环境检查 + 配置 + 启动）
-make setup
+# 复制配置（将占位符替换为实际值）
+cp backend/config.yaml.example backend/config.yaml
 
-# 或手动启动
+# 启动
 docker compose up -d
 
 # 前端: http://localhost:3000
@@ -65,39 +65,42 @@ docker compose up -d
 
 ```
 backend/
-├── cmd/server/          # 入口
+├── cmd/server/          # 入口 (main.go)
 ├── internal/
 │   ├── app/
-│   │   ├── handler/     # HTTP handler
-│   │   ├── middleware/   # 中间件 (auth/CORS/otel)
-│   │   ├── model/       # GORM 模型
-│   │   ├── repository/  # 数据库连接 + 迁移
-│   │   ├── router/      # 路由
-│   │   ├── service/     # 业务逻辑
-│   │   └── task/        # 异步任务
+│   │   ├── handler/     # HTTP handler (9 文件)
+│   │   ├── middleware/   # 中间件 (auth: JWT + 缓存)
+│   │   ├── models/       # GORM 模型
+│   │   ├── router/       # 路由注册
+│   │   ├── service/      # 业务逻辑 (DI 注入 DB/Cache/Queue)
+│   │   └── task/         # 异步任务 + 调度器
 │   └── infra/
-│       ├── cache/       # 缓存 (memory/redis/tiered)
-│       ├── config/      # Viper 配置
-│       ├── logger/      # slog 日志
-│       ├── otel/        # OpenTelemetry
-│       └── queue/       # 队列 (redis streams/kafka)
+│       ├── cache/        # 缓存 (memory/redis/tiered)
+│       ├── config/       # Viper 配置
+│       ├── database/     # DB 连接
+│       ├── logger/       # slog 日志
+│       ├── middleware/   # 基础设施中间件 (ratelimit)
+│       ├── migrate/      # 数据库迁移
+│       ├── otel/         # OpenTelemetry
+│       └── queue/        # 队列 (inmemory/redis streams/kafka)
 ├── Dockerfile
-├── config.yaml
+├── config.yaml.example   # 配置模板（复制为 config.yaml 使用）
+├── .gitignore            # 已排除 config.yaml
 └── go.mod
 
 frontend/
 ├── src/
-│   ├── api/             # HTTP 客户端 + 类型
-│   ├── pages/           # 页面组件
+│   ├── api/             # HTTP 客户端 + 类型定义
+│   ├── pages/           # 页面组件 (11 页面)
 │   ├── store/           # Zustand 状态
 │   ├── utils/           # 工具函数
-│   └── components/      # 通用组件
+│   └── components/      # 通用组件 (ErrorBoundary)
 ├── Dockerfile
 ├── nginx.conf
 └── vite.config.ts
 
 docker-compose.yml       # 一键部署
-docs/                    # 产品文档
+docs/                    # 文档
 ```
 
 ## API
@@ -106,7 +109,7 @@ docs/                    # 产品文档
 |------|------|------|
 | POST | /api/v1/auth/register | 注册 |
 | POST | /api/v1/auth/login | 登录 |
-| POST | /api/v1/auth/logout | 登出 |
+| POST | /api/v1/auth/logout | 登出 (撤销 Token) |
 | GET | /api/v1/auth/me | 当前用户 |
 | PUT | /api/v1/auth/password | 修改密码 |
 | PUT | /api/v1/auth/email | 修改邮箱 |
@@ -138,17 +141,20 @@ docs/                    # 产品文档
 |------|------|--------|
 | DB_HOST | PostgreSQL 地址 | localhost |
 | DB_PORT | PostgreSQL 端口 | 5432 |
-| REDIS_ADDR | Redis 地址 | localhost:6379 |
 | JWT_SECRET | JWT 密钥 | (config.yaml) |
-| CACHE_TYPE | 缓存类型 | tiered |
-| QUEUE_TYPE | 队列类型 | memory |
+| CACHE_TYPE | 缓存类型 | memory |
+| QUEUE_TYPE | 队列类型 | inmemory |
+| EXCHANGE_RATE_API_KEY | 汇率 API Key | (必填) |
 | OCR_ENDPOINT | PaddleOCR API 地址 | http://localhost:9000 |
 
 ## 文档
 
-- [产品规划](docs/product-plan-v1.md)
-- [API 设计](docs/api-design.md)
 - [架构设计](docs/architecture.md)
+- [产品概述](docs/product-overview.md)
+- [产品规划 v1](docs/product-plan-v1.md)
+- [产品规划 v2](docs/product-plan-v2.md)
+- [产品规划 v3](docs/product-plan-v3.md)
+- [API 设计](docs/api-design.md)
 - [路线图](docs/roadmap.md)
 - [测试计划](docs/test-plan.md)
 - [用户流程](docs/ux-flows.md)

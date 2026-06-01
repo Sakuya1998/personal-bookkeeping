@@ -1,7 +1,7 @@
 # 个人记账产品规划 v2.0
 
 > 产品定位：面向个人用户的轻量级多账本记账工具，主打多币种支持与简洁记账体验。
-> 当前阶段：v2.0 Insight 已完成，v3.0 Smart 即将启动
+> 当前阶段：v3.0 Smart 已完成，v4.0 Ecosystem 规划中
 
 ---
 
@@ -12,7 +12,7 @@
 ```
 v1.0 Foundation ── v2.0 Insight ── v3.0 Smart ── v4.0 Ecosystem
      MVP 记账          可视化+批量       智能记账          生态扩展
-     2026-Q1           2026-Q2          2026-Q3           2026-Q4
+     2026-Q1           2026-Q2          2026-Q3           远期
 ```
 
 ### 1.2 当前技术栈
@@ -36,12 +36,12 @@ v1.0 Foundation ── v2.0 Insight ── v3.0 Smart ── v4.0 Ecosystem
 
 | 维度 | 数据 |
 |------|------|
-| 后端 Go 文件 | 40 个 |
-| 后端 API 端点 | 30+ |
+| 后端 Go 文件 | 45 个 |
+| 后端 API 端点 | 35+ |
 | 前端 TSX 页面 | 11 个 |
-| 后端单元测试 | ~2400 行 |
+| 后端单元测试 | ~3000 行 |
 | 前端测试 | vitest + 3 个测试文件 |
-| 文档 | 8 个文件, ~3000 行 |
+| 文档 | 9 个文件, ~4000 行 |
 
 ### 1.4 领域模型
 
@@ -192,10 +192,9 @@ cmd/server/main.go          # 入口
 | 层 | 职责 | 是否必须 |
 |----|------|---------|
 | handler | 参数解析、权限验证、响应组装 | ✅ |
-| service | 业务逻辑编排（可选，简单 CRUD 可跳过） | ⚠️ |
-| repository | GORM 查询（当前在 handler 中直接使用 database.GetDB） | ✅ |
-| model | 数据模型定义 + GORM tag | ✅ |
-| infra | 跨领域基础设施（不与业务耦合） | ✅ |
+| service | 业务逻辑编排（所有 handler → service DI） | ✅ |
+| models | 数据模型定义 + GORM tag | ✅ |
+| infra | 跨领域基础设施（不与业务耦合）：database/cache/queue/config/logger/otel/middleware | ✅ |
 
 ### 3.4 关键设计决策
 
@@ -204,10 +203,11 @@ cmd/server/main.go          # 入口
 | 汇率折算 | 写入时计算 base_amount 并存储 | 查询免 join, 读性能好 |
 | Tags 存储 | text 列逗号分隔 | 够用但不利于复杂查询 |
 | 缓存层级 | memory / redis / tiered 可选 | 灵活, 默认 tiered |
-| 队列后端 | Redis Streams / Kafka 可选 | 灵活, 默认 Redis |
+| 队列后端 | inmemory / Redis Streams / Kafka 可选 | 开发零依赖, 默认 inmemory |
 | JWT 黑名单 | 通过 cache 实现 | 轻量, 无需额外存储 |
-| 代码风格 | handler 直调 database.GetDB() | 简单, 但单元测试需 mock DB |
+| 代码风格 | Handler → Service (DI) → Infra | 可测试性好, 架构清晰 |
 | 分类管理 | 全局分类, 跨账本可复用 | 减少重复创建 |
+| Auth 用户查询 | 缓存 5min TTL | 消除 N+1 DB 查询 |
 
 ---
 
@@ -249,50 +249,74 @@ cmd/server/main.go          # 入口
 
 ---
 
-## 五、v3.0 规划 (Smart)
+## 五、v3.0 已完成 (Smart)
 
-### 5.1 核心功能
+### 5.1 已实现功能
 
-| 优先级 | 功能 | 说明 | 预估工作量 |
-|--------|------|------|-----------|
-| P0 | 周期性交易 | 工资/房租/订阅自动创建交易, 每日/周/月/年 | 1 周 |
-| P0 | 支出预警 | 分类月预算, 阈值 80%/100% 站内通知 | 1 周 |
-| P1 | PDF 报表 | 月度/季度 PDF, 含趋势图 + 分类统计 | 1.5 周 |
-| P1 | 汇率自动更新 | 接入免费汇率 API, 每日定时拉取 | 0.5 周 |
-| P2 | PWA 适配 | Service Worker + 离线支持 + 添加到桌面 | 1 周 |
-| P2 | 拍照记账 | OCR 识别小票, 自动填充金额/日期 | 2 周 |
+| 优先级 | 功能 | 说明 |
+|--------|------|------|
+| P0 | 周期性交易 | 工资/房租/订阅自动创建交易, 每日/周/月/年频率 |
+| P0 | 支出预警 | 分类月预算, 创建交易时检查是否超支 |
+| P1 | PDF 报表 | 月度/季度 PDF, 含趋势图 + 分类统计 |
+| P1 | 汇率自动更新 | 接入 exchangerate-api, 每日 UTC 02:00 定时拉取 |
+| P2 | PWA 适配 | Service Worker + manifest + 添加到桌面 |
+| P2 | 拍照记账 | OCR 识别小票, 自动填充金额/日期/商家 |
 
-### 5.2 技术要点
+### 5.2 架构扩展 (v3.0)
+
+```v3.0 新增模块:
+┌────────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐
+│ Recurring  │  │  Budget  │  │  Report  │  │ ExchangeRate │
+│  Service   │  │  Service │  │  Service │  │ Auto-Update  │
+└─────┬──────┘  └────┬─────┘  └────┬─────┘  └──────┬───────┘
+      │              │             │               │
+      └──────────────┼─────────────┼───────────────┘
+                     │             │
+            ┌────────┴─────────────┴────────┐
+            │         Handler Layer          │
+            └────────────────────────────────┘
+```
+
+### 5.3 v3.0 技术要点
 
 **周期性交易**：
 - 新增 `recurring_rules` 表 (frequency, day_of_month, amount, category_id, etc.)
-- Cron job 每日检查到期规则, 自动创建交易
-- 前端: 创建交易时可选"设为周期性"
+- Scheduler goroutine 每小时检查到期规则, 自动创建交易 (同天去重)
+- ComputeNextRunDate 纯函数, 含边界测试 (闰年/月末/月初)
 
 **支出预警**：
 - 新增 `budgets` 表 (ledger_id, category_id, month, amount)
-- 新增交易时检查是否超预算
-- 前端: 设置页新增预算管理
+- CreateTransaction 时自动检查 CheckBudgetOverrun
+- 前端响应中带 over_budget 标记
 
 **PDF 报表**：
-- Go 后端用 `go-pdf` 或 `wkhtmltopdf` 生成
-- 邮件发送 (需集成 SMTP)
-- 前端: 报表页面预览 + 下载
+- Go 后端用 go-pdf/fpdf 生成
+- 异步导出任务 (queue handler)
 
-### 5.3 架构扩展
+**汇率自动更新**：
+- 接入 exchangerate-api (免费, 1500次/月)
+- UTC 02:00 定时同步 + 启动立即拉取
+- 支持 exchangerate-api / frankfurter 两种 Provider
 
-```
-v3.0 新增模块:
-┌────────────┐  ┌──────────┐  ┌──────────┐
-│ Recurring  │  │  Budget  │  │  Report  │
-│  Service   │  │  Service │  │  Service │
-└─────┬──────┘  └────┬─────┘  └────┬─────┘
-      │              │             │
-      └──────────────┼─────────────┘
-                     │
-            ┌────────┴────────┐
-            │    Handler      │
-            └─────────────────┘
+**PWA**：
+- vite-plugin-pwa + Service Worker
+- manifest.json + 离线缓存策略
+- 响应式布局适配移动端
+
+**拍照记账**：
+- OCR 服务基于 PaddleOCR
+- 多行文本提取: 金额/日期/商家规则解析
+- 前端支持拍照/相册选择 + 自动填充表单
+
+### 5.4 v3.0 领域模型扩展
+
+```sql
+-- 新增表
+recurring_rules: id, ledger_id, category_id, user_id, type, amount,
+                 currency, description, tags, frequency, interval,
+                 day_of_month, weekday, start_date, end_date, is_active
+
+budgets: id, user_id, ledger_id, category_id (nullable), month, amount
 ```
 
 ---
@@ -352,12 +376,12 @@ jobs:
 
 ## 八、关键指标
 
-| 指标 | v2.0 现状 | v3.0 目标 |
+| 指标 | v2.0 现状 | v3.0 现状 |
 |------|----------|----------|
 | 单次记账操作步骤 | 5 步 | 3 步 (OCR/周期性) |
-| 仪表盘信息维度 | 3 数字 + 2 图 + 1 日历 | 3 图 + 报表下载 |
-| 数据导出方式 | 前端一键导出 | 自动邮件报表 |
-| 汇率 | 手动录入 | 自动每日更新 |
-| 移动端支持 | 响应式 Web | PWA 离线可用 |
-| 测试覆盖率 | ~70% (后端 handler) | >85% |
-| 首屏加载 | ~109KB JS | ~80KB (code split) |
+| 仪表盘信息维度 | 3 数字 + 2 图 + 1 日历 | 3 图 + 报表 + 预算看板 |
+| 数据导出方式 | 前端一键导出 | 前端导出 + OCR 自动录入 |
+| 汇率 | 手动录入 | 自动每日更新 (exchangerate-api) |
+| 移动端支持 | 响应式 Web | PWA 离线可用 + 添加到桌面 |
+| 测试覆盖率 | ~70% (后端 handler) | >85% (含 service/infra/middleware) |
+| 后端代码架构 | handler 直调 DB | Handler → Service (DI) → Infra |
