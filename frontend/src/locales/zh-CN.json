@@ -14,7 +14,8 @@
     "tagStats": "标签统计",
     "settings": "设置",
     "calendar": "日历视图",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "user": "用户"
   },
   "common": {
     "save": "保存",
@@ -155,7 +156,23 @@
     "createSuccess": "创建成功",
     "updateSuccess": "修改成功",
     "deleteSuccess": "删除成功",
-    "deleteConfirm": "确定删除该交易？"
+    "deleteConfirm": "确定删除该交易？",
+    "budgetWarning": "已超出预算！",
+    "deleteFailed": "删除失败",
+    "batchDeleteConfirm": "确定删除已选的 {{count}} 项交易？",
+    "batchDeleted": "已成功删除 {{count}} 项交易",
+    "batchDeleteFailed": "批量删除失败",
+    "batchCategoryUpdated": "已成功更新 {{count}} 项交易的分类",
+    "batchCategoryFailed": "批量修改分类失败",
+    "ocrSuccessWithMerchant": "识别成功：金额 {{amount}}，商户 {{merchant}}",
+    "ocrSuccess": "识别成功：金额 {{amount}}",
+    "ocrNoAmount": "识别成功，但未识别到金额，请手动填写",
+    "ocrFailed": "识别失败",
+    "actions": "操作",
+    "searchPlaceholder": "搜索备注...",
+    "confirmModify": "确认修改",
+    "selectCategory": "选择分类",
+    "batchCategoryDesc": "将修改已选 {{count}} 项交易的分类为："
   },
   "ledgers": {
     "title": "账本管理",
@@ -187,7 +204,10 @@
     "member": "成员",
     "joinedAt": "加入时间",
     "action": "操作",
-    "removeConfirm": "移除 {{username}}？"
+    "removeConfirm": "移除 {{username}}？",
+    "membersCount": "{{count}} 个成员",
+    "membersCount_one": "{{count}} 个成员",
+    "membersCount_other": "{{count}} 个成员"
   },
   "categories": {
     "title": "分类管理",

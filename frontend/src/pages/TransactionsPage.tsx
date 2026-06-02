@@ -51,7 +51,7 @@ const TransactionsPage: React.FC = () => {
     loadTxns();
     client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`)
       .then((res) => setCategories(res.data.data))
-      .catch(err => console.error('获取分类失败:', err));
+      .catch(err => { console.error('获取分类失败:', err); message.error(t('common.failed')); });
   }, [currentLedger, page, pageSize, filters, loadTxns]);
 
   const handleSubmit = async (values: Record<string, unknown>) => {

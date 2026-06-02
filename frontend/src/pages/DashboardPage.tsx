@@ -51,7 +51,7 @@ const DashboardPage: React.FC = () => {
         setMonthlyTrend(trendRes.data.data || []);
         setCategoryBreakdown(catRes.data.data || []);
       })
-      .catch(err => console.error(t('dashboard.fetchDataFailed'), err))
+      .catch(err => { console.error(t('dashboard.fetchDataFailed'), err); message.error(t('dashboard.fetchDataFailed')); })
       .finally(() => setLoading(false));
   }, [currentLedger, t]);
 

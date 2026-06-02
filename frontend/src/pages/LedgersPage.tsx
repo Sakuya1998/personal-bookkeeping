@@ -129,7 +129,7 @@ const LedgersPage: React.FC = () => {
                         <div>{ledger.description}</div>
                         <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                           <Tag color="blue">{ledger.base_currency}</Tag>
-                          <Tag icon={<TeamOutlined />} color="default">0 members</Tag>
+                          <Tag icon={<TeamOutlined />} color="default">{t('members.membersCount', { count: 0 })}</Tag>
                         </div>
                       </div>
                     }

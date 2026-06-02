@@ -67,7 +67,7 @@ const RecurringPage: React.FC = () => {
     loadRules();
     client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`)
       .then((res) => setCategories(res.data.data))
-      .catch(err => console.error(t('recurring.fetchCategoriesFailed'), err));
+      .catch(err => { console.error(t('recurring.fetchCategoriesFailed'), err); message.error(t('recurring.fetchCategoriesFailed')); });
   }, [currentLedger, loadRules, t]);
 
   const handleSubmit = async (values: Record<string, unknown>) => {

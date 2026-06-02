@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Card, Button, Row, Col, Spin, Empty, Tag } from 'antd';
+import { Card, Button, Row, Col, Spin, Empty, Tag, message } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -51,7 +51,7 @@ const CalendarViewPage: React.FC = () => {
         `/ledgers/${urlLedgerId}/daily-transactions?year=${currentMonth.year()}&month=${currentMonth.month() + 1}`,
       )
       .then((res) => setDailyData(res.data.data || []))
-      .catch(err => console.error(t('calendar.fetchDailyDataFailed'), err))
+      .catch(err => { console.error(t('calendar.fetchDailyDataFailed'), err); message.error(t('calendar.fetchDailyDataFailed')); })
       .finally(() => setLoading(false));
   }, [urlLedgerId, currentMonth]);
 
@@ -64,7 +64,7 @@ const CalendarViewPage: React.FC = () => {
         `/ledgers/${urlLedgerId}/transactions?start_date=${dateStr}&end_date=${dateStr}&page_size=50`,
       )
       .then((res) => setDayTxns(res.data.data?.items || []))
-      .catch(err => console.error(t('calendar.fetchDateTransactionsFailed'), err));
+      .catch(err => { console.error(t('calendar.fetchDateTransactionsFailed'), err); message.error(t('calendar.fetchDateTransactionsFailed')); });
   };
 
   // Build calendar data map

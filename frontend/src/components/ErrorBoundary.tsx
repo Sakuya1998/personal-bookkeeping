@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button, Card, Typography } from 'antd';
+import { withTranslation, WithTranslation } from 'react-i18next';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -10,8 +11,8 @@ interface ErrorBoundaryState {
   errorInfo: React.ErrorInfo | null;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps & WithTranslation, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps & WithTranslation) {
     super(props);
     this.state = { error: null, errorInfo: null };
   }
@@ -26,6 +27,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   };
 
   render() {
+    const { t } = this.props;
     if (this.state.error) {
       return (
         <div
@@ -45,7 +47,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             }}
           >
             <Typography.Title level={3} style={{ marginBottom: 16 }}>
-              页面出错了
+              {t('error.boundaryTitle')}
             </Typography.Title>
             <Typography.Paragraph
               type="danger"
@@ -58,7 +60,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
               {this.state.error.message}
             </Typography.Paragraph>
             <Button type="primary" onClick={this.handleRefresh}>
-              刷新页面
+              {t('error.refresh')}
             </Button>
           </Card>
         </div>
@@ -69,4 +71,4 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-export default ErrorBoundary;
+export default withTranslation()(ErrorBoundary);

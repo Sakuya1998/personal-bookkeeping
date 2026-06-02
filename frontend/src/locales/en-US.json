@@ -14,7 +14,8 @@
     "tagStats": "Tag Stats",
     "settings": "Settings",
     "calendar": "Calendar",
-    "logout": "Logout"
+    "logout": "Logout",
+    "user": "User"
   },
   "common": {
     "save": "Save",
@@ -155,7 +156,23 @@
     "createSuccess": "Created successfully",
     "updateSuccess": "Updated successfully",
     "deleteSuccess": "Deleted successfully",
-    "deleteConfirm": "Are you sure you want to delete this transaction?"
+    "deleteConfirm": "Are you sure you want to delete this transaction?",
+    "budgetWarning": "Budget exceeded!",
+    "deleteFailed": "Delete failed",
+    "batchDeleteConfirm": "Delete {{count}} selected transactions?",
+    "batchDeleted": "{{count}} transactions deleted",
+    "batchDeleteFailed": "Batch delete failed",
+    "batchCategoryUpdated": "Category updated for {{count}} transactions",
+    "batchCategoryFailed": "Batch category update failed",
+    "ocrSuccessWithMerchant": "Scan successful: amount {{amount}}, merchant {{merchant}}",
+    "ocrSuccess": "Scan successful: amount {{amount}}",
+    "ocrNoAmount": "Scan successful, but no amount detected. Please fill manually.",
+    "ocrFailed": "Scan failed",
+    "actions": "Actions",
+    "searchPlaceholder": "Search description...",
+    "confirmModify": "Confirm Change",
+    "selectCategory": "Select category",
+    "batchCategoryDesc": "Change category of {{count}} selected transactions to:"
   },
   "ledgers": {
     "title": "Ledgers",
@@ -187,7 +204,10 @@
     "member": "Member",
     "joinedAt": "Joined",
     "action": "Action",
-    "removeConfirm": "Remove {{username}}?"
+    "removeConfirm": "Remove {{username}}?",
+    "membersCount": "{{count}} members",
+    "membersCount_one": "{{count}} member",
+    "membersCount_other": "{{count}} members"
   },
   "categories": {
     "title": "Categories",
