@@ -1,19 +1,26 @@
 package migrate
 
 import (
+	"embed"
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
-// Run 执行数据库迁移。
-// dir: migrations 目录路径（绝对或相对 migrate 包）
-// dsn: postgres DSN
-func Run(dir, dsn string) error {
-	srcURL := fmt.Sprintf("file://%s", dir)
-	m, err := migrate.New(srcURL, dsn)
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
+
+// Up runs all pending migrations using embedded SQL files.
+// dsn: postgres DSN (e.g. "postgres://user:pass@host:5432/db?sslmode=disable")
+func Up(dsn string) error {
+	d, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("migrate source: %w", err)
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", d, dsn)
 	if err != nil {
 		return fmt.Errorf("migrate new: %w", err)
 	}
@@ -25,10 +32,14 @@ func Run(dir, dsn string) error {
 	return nil
 }
 
-// Down 回滚所有迁移。
-func Down(dir, dsn string) error {
-	srcURL := fmt.Sprintf("file://%s", dir)
-	m, err := migrate.New(srcURL, dsn)
+// Down rolls back all migrations.
+func Down(dsn string) error {
+	d, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("migrate source: %w", err)
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", d, dsn)
 	if err != nil {
 		return fmt.Errorf("migrate new: %w", err)
 	}

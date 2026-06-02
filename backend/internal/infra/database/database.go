@@ -14,7 +14,6 @@ import (
 var DB *gorm.DB
 
 // Init 连接数据库。
-// 注意：AutoMigrate 和 createIndexes 由 main.go 在 Init 之后调用。
 func Init(cfg *config.Config) {
 	var err error
 	DB, err = gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{
@@ -26,35 +25,6 @@ func Init(cfg *config.Config) {
 	}
 
 	slog.Info("database connected successfully")
-}
-
-// AutoMigrate 自动迁移数据库表结构（dev 便利）。
-func AutoMigrate(models ...interface{}) {
-	if DB == nil {
-		slog.Error("database not initialized, skipping migration")
-		return
-	}
-	if err := DB.AutoMigrate(models...); err != nil {
-		slog.Error("failed to migrate database", "error", err)
-		return
-	}
-	slog.Info("database migrated successfully")
-}
-
-func CreateIndexes() {
-	if DB == nil {
-		slog.Warn("database not initialized, skipping index creation")
-		return
-	}
-	indexes := []string{
-		`CREATE INDEX IF NOT EXISTS idx_transactions_ledger_user_date ON transactions (ledger_id, user_id, transaction_date)`,
-		`CREATE INDEX IF NOT EXISTS idx_transactions_user_type ON transactions (user_id, type)`,
-	}
-	for _, idx := range indexes {
-		if err := DB.Exec(idx).Error; err != nil {
-			slog.Warn("failed to create index", "error", err)
-		}
-	}
 }
 
 func GetDB() *gorm.DB {

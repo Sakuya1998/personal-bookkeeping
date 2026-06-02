@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"personal-bookkeeping/internal/infra/database"
-	"personal-bookkeeping/internal/app/models"
 	"personal-bookkeeping/internal/app/router"
 	service "personal-bookkeeping/internal/app/service"
 	"personal-bookkeeping/internal/app/task"
 	"personal-bookkeeping/internal/infra/cache"
 	"personal-bookkeeping/internal/infra/config"
 	"personal-bookkeeping/internal/infra/logger"
+	"personal-bookkeeping/internal/infra/migrate"
 	"personal-bookkeeping/internal/infra/otel"
 	"personal-bookkeeping/internal/infra/queue"
 
@@ -125,20 +125,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// AutoMigrate (dev convenience) — app models passed from app layer
-	database.AutoMigrate(
-		&models.User{},
-		&models.Ledger{},
-		&models.Category{},
-		&models.Transaction{},
-		&models.ExchangeRate{},
-		&models.RecurringRule{},
-		&models.Budget{},
-		&models.LedgerMember{},
-	)
-
-	// Create performance indexes after tables exist
-	database.CreateIndexes()
+	// Run database migrations
+	if err := migrate.Up(cfg.DSN()); err != nil {
+		slog.Error("failed to run migrations", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("database migration completed")
 
 	// Migrate existing ledger owners into ledger_members table
 	svc := service.NewService()
