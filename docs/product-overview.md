@@ -1,16 +1,16 @@
 # 产品概述
 
-> 文档版本: v3.0 | 最后更新: 2026-05-29
+> 文档版本: v4.0 | 最后更新: 2026-06-02
 
 ---
 
 ## 1. 产品定位
 
-**个人记账 (Personal Bookkeeping)** 是一款面向个人用户的轻量级多账本记账工具。
+**个人记账 (Personal Bookkeeping)** 是一款面向个人及家庭/团队的轻量级多账本记账工具。
 
 - **核心理念**: 一次录入, 自动多币种折合, 给用户最干净的财务视图
-- **目标场景**: 个人日常收支记录、多币种资产管理、消费数据分析
-- **差异化**: 原生多币种支持、可配置的多级缓存、异步任务处理、完整的可观测性
+- **目标场景**: 个人日常收支记录、多币种资产管理、消费数据分析、家庭/团队共用账本
+- **差异化**: 原生多币种支持、可配置的多级缓存、异步任务处理、完整的可观测性、共享账本多角色权限
 
 ---
 
@@ -75,16 +75,12 @@
 | | 自动填充交易表单 | ✅ |
 | **PWA** | Service Worker + manifest | ✅ |
 | | 离线缓存策略 + 添加到桌面 | ✅ |
-
-### 2.2 待实现功能
-
-| 功能模块 | 功能项 | 优先级 | 说明 |
-|---------|--------|--------|------|
-| **分析增强** | 年度财务报告 | P0 | 全年收支/储蓄率/分类排行 |
-| | 标签使用统计 | P1 | 标签维度分析 |
-| **国际化** | 多语言 (i18n) | P1 | 英文界面支持 |
-| | 货币选择器增强 | P1 | 100+ 币种, 实时汇率 |
-| **共享** | 账本共享 | P3 | 家庭/团队共用账本 |
+| **分析增强** | 年度财务报告 (全年收支/储蓄率/分类排行) | ✅ |
+| | 标签使用统计 (标签维度分析) | ✅ |
+| **国际化** | 多语言 (i18n, 英文界面支持) | ✅ |
+| | 货币选择器 (100+ 币种, 实时汇率) | ✅ |
+| **共享账本** | 账本共享 (家庭/团队共用, 多角色权限) | ✅ |
+| **系统功能** | 软删除 (逻辑删除, 数据可恢复) | ✅ |
 
 ---
 
@@ -94,9 +90,11 @@
 
 | 角色 | 描述 | 权限范围 |
 |------|------|---------|
-| **普通用户** | 个人记账用户 | 自己的账本/分类/交易/汇率/预算/规则 CRUD, 个人设置 |
+| **Owner (拥有者)** | 账本创建者, 完全控制 | 账本 CRUD、成员管理 (邀请/踢出/变更角色)、所有数据 CRUD、转让拥有权、删除账本 |
+| **Admin (管理员)** | 账本管理员, 日常管理 | 交易/分类/预算/规则 CRUD、管理成员 (仅 Owner 可踢出 Admin)、导出数据 |
+| **Member (成员)** | 普通成员, 使用账本 | 交易/分类 CRUD、查看报表、查看成员列表 (不可管理成员) |
 
-当前系统为纯个人单用户模式, 暂不支持多角色或多用户共享。
+Owner 可邀请用户加入账本, 分配 Admin 或 Member 角色。每个账本有且仅有一个 Owner, 可转让。Admin 和 Member 数量不限。
 
 ### 3.2 用户画像
 
@@ -106,6 +104,7 @@
 | **极简记账者** | 快速记录支出 (拍照 OCR), 查看月度趋势 | 每周 |
 | **自由职业者** | 多项目/多收入来源分类统计, 预算预警 | 每月 |
 | **数字游民** | 多币种 (USD/EUR/JPY) 资产管理 | 不定期 |
+| **家庭/团队** | 共同记账, 多角色权限管理, 共享财务视图 | 每周 |
 
 ---
 
@@ -114,7 +113,7 @@
 ### 4.1 实体关系
 
 ```
-User (1) ──→ Ledger (N)
+User (1) ──→ LedgerMember (N) ──→ Ledger (N)   # N:M 通过 LedgerMember
 User (1) ──→ Category (N)
 User (1) ──→ Transaction (N)
 User (1) ──→ RecurringRule (N)
@@ -123,6 +122,9 @@ User (1) ──→ Budget (N)
 Ledger (1) ──→ Transaction (N)
 Ledger (1) ──→ Category (N)      # 或全局共享 (ledger_id nullable)
 Ledger (1) ──→ Budget (N)
+Ledger (1) ──→ LedgerMember (N)
+
+LedgerMember (N) ──→ User (1)
 
 Category (1) ──→ Transaction (N)
 Category (1) ──→ Category (N)    # 自引用父子层级
@@ -135,6 +137,7 @@ Category (1) ──→ Budget (N)      # 或全局预算 (category_id nullable)
 |------|---------|
 | User | id, username, email, password_hash, is_active |
 | Ledger | id, user_id, name, description, base_currency, icon, color, is_archived, sort_order |
+| LedgerMember | id, ledger_id, user_id, role (owner\|admin\|member), invited_by, created_at |
 | Category | id, user_id, ledger_id (nullable), name, type(income\|expense), icon, color, parent_id, sort_order, is_active |
 | Transaction | id, ledger_id, user_id, category_id, type, amount, currency, exchange_rate, base_amount, description, transaction_date, tags, is_reconciled |
 | ExchangeRate | id, from_currency, to_currency, rate, date, source |
@@ -153,6 +156,7 @@ Category (1) ──→ Budget (N)      # 或全局预算 (category_id nullable)
 | Web 框架 | Gin v1.12 | HTTP 路由 + 中间件 |
 | ORM | GORM v1.25 | 数据库操作 |
 | 数据库 | PostgreSQL 16 | 持久化存储 |
+| 数据库迁移 | golang-migrate | 数据库 Schema 版本管理 |
 | 认证 | golang-jwt v5 + bcrypt | JWT 签发/验证 + 黑名单 (Cache) |
 | 缓存 | 自定义 Cache 接口 | memory / Redis / tiered (L1+L2) |
 | 队列 | 自定义 Queue 接口 | inmemory / Redis Streams / Kafka |
@@ -185,12 +189,12 @@ Category (1) ──→ Budget (N)      # 或全局预算 (category_id nullable)
 
 | 类别 | 统计项 | 数量 |
 |------|--------|------|
-| **后端** | Handler 源文件 | 9 个 (含 analytics/budget/recurring/report/ocr) |
-| | Service 源文件 | 11 个 |
-| | API 端点总数 | 35+ |
-| | 测试文件 | 13 个 (_test.go) |
-| | 测试行数 | ~3000 行 |
-| **前端** | 页面组件 | 11 个 (含 Budget/Recurring/CalendarView) |
-| | 前端路由 | 10 条 |
+| **后端** | Handler 源文件 | 10 个 (含 analytics/budget/recurring/report/ocr/member) |
+| | Service 源文件 | 12 个 (含 member) |
+| | API 端点总数 | 40+ |
+| | 测试文件 | 16 个 (_test.go) |
+| | 测试行数 | ~3500 行 |
+| **前端** | 页面组件 | 12 个 (含 Budget/Recurring/CalendarView/InvitePage/CalendarViewPage) |
+| | 前端路由 | 12 条 |
 | **集成测试** | handler_test + sprint2/3 | ~1,700 行 |
 | **文档** | 文档文件 | 10 个 |

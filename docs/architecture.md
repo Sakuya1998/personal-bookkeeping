@@ -1,12 +1,13 @@
 # 架构设计
 
-> 文档版本: v1.1 | 最后更新: 2026-05-29
+> 文档版本: v1.2 | 最后更新: 2026-06-02
 
 ## 更新日志
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | v1.1 | 2026-05-29 | 后端重构 Phase 1-5：handler → service 全面迁移、Cache/Queue DI 注入、database 解耦、model/→models/ 改名、infra/middleware 拆分、auth 中间件用户缓存 |
+| v1.2 | 2026-06-02 | v4.0: shared ledger (member handler/service), soft delete (deleted_at), strutil pkg, task scheduler |
 
 ---
 
@@ -42,17 +43,18 @@
 │             │                                                    │
 │  ┌──────────▼───────────────────────────────────────────────┐     │
 │  │                    Handler Layer                          │     │
-│  │  auth → service、ledger → service、category → service     │     │
-│  │  transaction → service、analytics → service、budget →     │     │
-│  │  exchange_rate → service、recurring → service、report →   │     │
-│  │  (所有 handler 零 DB/Cache/Queue 直调)                   │     │
+│  │  auth → service、member → service、ledger → service、     │
+│  │  category → service、transaction → service、analytics →  │
+│  │  service、budget → service、exchange_rate → service、    │
+│  │  recurring → service、report → service                   │
+│  │  (所有 handler 零 DB/Cache/Queue 直调)                   │
 │  └──────────┬───────────────────────────────────────────────┘     │
 │             │                                                    │
 │  ┌──────────▼───────────────────────────────────────────────┐     │
 │  │                  Service Layer (DI 注入)                  │     │
-│  │  auth.go  ledger.go  category.go  transaction.go         │     │
-│  │  analytics.go  budget.go  exchange_rate.go               │     │
-│  │  recurring.go  report.go  ocr.go  exchange.go            │     │
+│  │  auth.go  ledger.go  category.go  transaction.go         │
+│  │  member.go  analytics.go  budget.go  exchange_rate.go    │
+│  │  recurring.go  report.go  ocr.go  exchange.go            │
 │  │  └─ 通过 s.DB / s.Cache / s.Queue 访问基础设施           │     │
 │  └──────────┬───────────────────────────────────────────────┘     │
 │             │                                                    │
@@ -97,6 +99,7 @@ internal/app/router/router.go
 internal/app/handler/
   ├─ auth.go          认证 (注册/登录/登出/修改密码/邮箱)
   ├─ ledger.go        账本 CRUD + 统计/导出/标签
+  ├─ member.go        成员 CRUD + 邀请/退出
   ├─ category.go      分类 CRUD (树形结构)
   ├─ transaction.go   交易 CRUD + 批量操作
   ├─ analytics.go     月度趋势/分类分布/日历数据
@@ -113,6 +116,7 @@ internal/app/service/
   ├─ service.go       DI 容器: Service{DB, Cache, Queue}
   ├─ auth.go          注册/登录/修改密码/邮箱/Token 生成+黑名单
   ├─ transaction.go   创建/更新/删除/列表/批量 (含汇率折算+预算检查)
+  ├─ member.go        成员 CRUD + 角色管理
   ├─ ledger.go        账本 CRUD + 导出 CSV/JSON + 标签/统计
   ├─ category.go      分类 CRUD + 缓存管理
   ├─ analytics.go     月度趋势/分类分布/日历数据
@@ -123,11 +127,13 @@ internal/app/service/
   ├─ report.go        PDF 报表生成 + 统计计算
   └─ ocr.go           拍照记账: OCR 服务调用 + 金额/日期/商家提取
 
-internal/app/task/tasks.go
-  └─ 异步任务: 汇率定时同步 (scheduler) + 导出任务
+internal/app/task/
+  ├─ tasks.go          异步任务: 汇率定时同步 + 导出任务
+  └─ scheduler.go      定时调度器: 周期性任务注册 + 执行 (RegisterAll 在 main.go 调用)
 
 internal/app/models/models.go
-  └─ GORM 模型定义 (User/Ledger/Category/Transaction/...)
+  └─ GORM 模型定义 (User/Ledger/LedgerMember/Category/Transaction/...)
+  └─ 软删除: 所有实体含 deleted_at 字段, GORM 查询作用域自动过滤已删除记录
 
 internal/infra/
   ├─ database/database.go    DB 连接 + GetDB() 全局访问
@@ -149,7 +155,8 @@ internal/infra/
   ├─ logger/                 slog 日志 (分级文件/轮转/gin+gorm 适配)
   ├─ otel/otel.go            OpenTelemetry 初始化 (Tracing + Metrics)
   ├─ migrate/migrate.go      golang-migrate 执行
-  └─ swagger/                Swagger 生成文档
+  ├─ swagger/                Swagger 生成文档
+  └─ pkg/strutil/            公共工具函数 (字符串/时间/格式化等)
 ```
 
 ### 2.2 前端分层
@@ -167,9 +174,10 @@ src/pages/
   ├─ TransactionsPage.tsx 交易记录 + OCR 拍照识别
   ├─── BudgetPage.tsx     预算管理
   ├─ ExchangeRatesPage.tsx 汇率管理
-  ├─ RecurringPage.tsx    周期性交易
-  ├─ SettingsPage.tsx     个人设置
-  └─ CalendarViewPage.tsx 日历视图
+  ├─ RecurringPage.tsx         周期性交易
+  ├─ InvitePage.tsx            邀请成员
+  ├─ SettingsPage.tsx          个人设置
+  └─ CalendarViewPage.tsx      日历视图
 
 src/api/
   ├─ client.ts            Axios 实例 + Token 拦截器
@@ -258,6 +266,11 @@ src/components/           通用组件 (ErrorBoundary 等)
       ├─ Inmemory: 内存 channel (默认, 开发/单机)
       ├─ Redis Streams: XREADGROUP → XACK
       └─ Kafka: Consume → Commit
+
+定时调度 (Scheduler):
+  ├─ task/scheduler.go 注册周期性任务 (汇率更新、数据清理等)
+  ├─ Scheduler.RegisterAll() 在 main.go 启动时调用
+  └─ 支持 cron 表达式 + 一次性延迟任务
 ```
 
 ---
@@ -310,3 +323,7 @@ src/components/           通用组件 (ErrorBoundary 等)
 | Auth 用户查询 | 缓存 5min TTL | 避免 N+1 DB 查询, JWT 已保证身份 |
 | Amount 输入 | any 类型兼容 | 前端 string/number 均接受 |
 | Tags | 逗号分隔 text | 简单够用 |
+| 软删除 | deleted_at 逻辑删除 | GORM 作用域自动过滤已删除记录, 保留数据可追溯 |
+| 共享账本 | LedgerMember 关联表 | 多用户协作, role 角色控制读写权限 |
+| 数据库迁移 | golang-migrate | 取代 AutoMigrate, 提供显式迁移版本控制, 支持回滚 |
+| strutil 包 | internal/pkg/strutil | 公共工具函数集中管理, 避免重复代码 |

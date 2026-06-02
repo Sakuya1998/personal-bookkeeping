@@ -1,12 +1,13 @@
 # API 接口设计
 
-> 文档版本: v3.1 | 最后更新: 2026-05-29
+> 文档版本: v4.0 | 最后更新: 2026-06-02
 > 基础路径: `/api/v1`
 > 数据格式: JSON
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | v3.1 | 2026-05-29 | 交易/预算/周期性规则的 `amount` 字段接受 string 或 number 格式 |
+| v4.0 | 2026-06-02 | 共享账本成员管理、标签统计、汇率同步、年度报告
 
 ---
 
@@ -723,8 +724,6 @@ Token 通过 `POST /auth/login` 或 `POST /auth/register` 获取。
 #### `POST /api/v1/exchange-rates`
 
 创建汇率。同日期 + 同币种对自动覆盖 (upsert 语义)。
-
-**请求体**:
 ```json
 {
   "from_currency": "USD",
@@ -752,6 +751,22 @@ Token 通过 `POST /auth/login` 或 `POST /auth/register` 获取。
       "date": "2026-05-26"
     }
   ]
+}
+```
+
+#### `POST /api/v1/exchange-rates/sync`
+
+手动触发从外部 API 同步最新汇率。需认证。
+
+**响应** (200):
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "synced": 32,
+    "source": "exchangerate-api"
+  }
 }
 ```
 
@@ -876,6 +891,36 @@ Token 通过 `POST /auth/login` 或 `POST /auth/register` 获取。
 - 返回该月有交易记录的每一天的汇总
 - 无交易记录的天数不返回 (前端用 0 填充)
 - 该接口有缓存, TTL 5 分钟
+
+#### `GET /api/v1/ledgers/:ledger_id/tag-stats`
+
+获取标签使用统计。需认证。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| start_date | string | 否 | 开始日期 `"2006-01-02"` |
+| end_date | string | 否 | 结束日期 `"2006-01-02"` |
+
+**响应** (200):
+```json
+{
+  "code": 200,
+  "data": [
+    {
+      "tag": "午餐",
+      "count": 45,
+      "total": 3200.00
+    },
+    {
+      "tag": "外卖",
+      "count": 20,
+      "total": 880.00
+    }
+  ]
+}
+```
 
 ---
 
@@ -1158,6 +1203,135 @@ Token 通过 `POST /auth/login` 或 `POST /auth/register` 获取。
 
 ---
 
+### 2.12 账本成员 (Member)
+
+所有接口需认证。
+
+#### `GET /api/v1/ledgers/:ledger_id/members`
+
+获取账本成员列表。需 owner 或 admin 权限。
+
+**查询参数**: 无
+
+**响应** (200):
+```json
+{
+  "code": 200,
+  "data": [
+    {
+      "id": "...",
+      "user_id": "...",
+      "username": "alice",
+      "role": "owner",
+      "invited_by": null,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "...",
+      "user_id": "...",
+      "username": "bob",
+      "role": "admin",
+      "invited_by": "alice",
+      "created_at": "2026-06-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| role | string | `owner`、`admin` 或 `member` |
+| permissions | array | member 不显示管理按钮（前端隐藏） |
+
+#### `POST /api/v1/ledgers/:ledger_id/members`
+
+邀请用户加入账本。需 owner 或 admin 权限。
+
+**请求体**:
+```json
+{
+  "username": "bob"
+}
+```
+
+| 字段 | 类型 | 必填 | 约束 |
+|------|------|------|------|
+| username | string | 是 | 目标用户名, 最大 50 字符 |
+
+**响应** (200):
+```json
+{
+  "code": 200,
+  "data": {
+    "id": "...",
+    "user_id": "...",
+    "username": "bob",
+    "role": "member"
+  }
+}
+```
+
+**错误码**:
+
+| 状态码 | message | 场景 |
+|--------|---------|------|
+| 403 | `"only owner or admin can invite members"` | 无权限 |
+| 404 | `"user not found"` | 用户名不存在 |
+| 409 | `"user is already a member"` | 用户已加入 |
+
+#### `DELETE /api/v1/ledgers/:ledger_id/members/:user_id`
+
+移除账本成员。需 owner 或 admin 权限。不能移除 owner。
+
+**响应** (200): `{ "code": 200, "message": "ok" }`
+
+**错误码**:
+
+| 状态码 | message | 场景 |
+|--------|---------|------|
+| 403 | `"only owner or admin can remove members"` | 无权限 |
+| 403 | `"cannot remove the owner"` | 尝试移除 owner |
+| 404 | `"member not found"` | 用户不是成员 |
+
+#### `PUT /api/v1/ledgers/:ledger_id/members/:user_id`
+
+修改成员角色。仅 owner 可操作。
+
+**请求体**:
+```json
+{
+  "role": "admin"
+}
+```
+
+| 字段 | 类型 | 必填 | 约束 |
+|------|------|------|------|
+| role | string | 是 | `admin` 或 `member` |
+
+**响应** (200): `{ "code": 200, "message": "ok" }`
+
+**错误码**:
+
+| 状态码 | message | 场景 |
+|--------|---------|------|
+| 403 | `"only owner can change roles"` | 非 owner |
+| 403 | `"cannot change owner's role"` | 尝试修改 owner 角色 |
+| 404 | `"member not found"` | 用户不是成员 |
+
+#### `POST /api/v1/ledgers/:ledger_id/leave`
+
+退出账本。owner 不能退出（需先转让所有权）。
+
+**响应** (200): `{ "code": 200, "message": "ok" }`
+
+**错误码**:
+
+| 状态码 | message | 场景 |
+|--------|---------|------|
+| 403 | `"owner cannot leave; transfer ownership first"` | owner 尝试退出 |
+
+---
+
 ## 3. 错误码汇总
 
 | HTTP 状态码 | Message 示例 | 典型场景 |
@@ -1202,6 +1376,14 @@ GET    /api/v1/ledgers/:ledger_id/category-breakdown     # 分类分布
 GET    /api/v1/ledgers/:ledger_id/daily-transactions     # 日历汇总
 GET    /api/v1/ledgers/:ledger_id/export                 # 导出交易
 GET    /api/v1/ledgers/:ledger_id/tags                   # 标签列表
+GET    /api/v1/ledgers/:ledger_id/tag-stats              # 标签统计 (v4.0)
+
+# 账本成员 (v4.0)
+GET    /api/v1/ledgers/:ledger_id/members                # 成员列表
+POST   /api/v1/ledgers/:ledger_id/members                # 邀请成员
+DELETE /api/v1/ledgers/:ledger_id/members/:user_id       # 移除成员
+PUT    /api/v1/ledgers/:ledger_id/members/:user_id       # 修改角色
+POST   /api/v1/ledgers/:ledger_id/leave                  # 退出账本
 
 # 分类
 GET    /api/v1/ledgers/:ledger_id/categories            # 分类列表（树形）
@@ -1220,6 +1402,7 @@ PUT    /api/v1/transactions/batch-update                 # 批量修改
 # 汇率
 GET    /api/v1/exchange-rates                            # 汇率列表
 POST   /api/v1/exchange-rates                            # 创建汇率
+POST   /api/v1/exchange-rates/sync                       # 同步汇率 (v4.0)
 GET    /api/v1/exchange-rates/latest                     # 最新汇率
 DELETE /api/v1/exchange-rates/:id                        # 删除汇率
 
@@ -1249,4 +1432,4 @@ GET    /swagger/*any                                     # Swagger UI
 GET    /metrics                                          # Prometheus 指标
 ```
 
-**总计**: 46 个端点 (含 Swagger 和 Metrics), 不含为 44 个业务端点
+**总计**: 53 个端点 (含 Swagger 和 Metrics), 不含为 51 个业务端点

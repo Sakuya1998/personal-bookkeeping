@@ -61,6 +61,16 @@ docker compose up -d
 - [x] 汇率自动更新
 - [x] PWA 移动适配
 
+### v4.0 (Team) ✅
+- [x] 共享账本 (owner/admin/member 角色 + 邀请机制)
+- [x] 国际化 (zh-CN / en-US)
+- [x] 币种选择器 (100+ 币种)
+- [x] 标签统计
+- [x] 年度报告
+- [x] 软删除 (回收站)
+- [x] 角色权限显隐控制
+- [x] 日历视图重构
+
 ## 项目结构
 
 ```
@@ -68,11 +78,11 @@ backend/
 ├── cmd/server/          # 入口 (main.go)
 ├── internal/
 │   ├── app/
-│   │   ├── handler/     # HTTP handler (9 文件)
+│   │   ├── handler/     # HTTP handler (10 文件, 新增 member.go)
 │   │   ├── middleware/   # 中间件 (auth: JWT + 缓存)
 │   │   ├── models/       # GORM 模型
 │   │   ├── router/       # 路由注册
-│   │   ├── service/      # 业务逻辑 (DI 注入 DB/Cache/Queue)
+│   │   ├── service/      # 业务逻辑 (12 文件, 新增 member.go)
 │   │   └── task/         # 异步任务 + 调度器
 │   └── infra/
 │       ├── cache/        # 缓存 (memory/redis/tiered)
@@ -83,6 +93,8 @@ backend/
 │       ├── migrate/      # 数据库迁移
 │       ├── otel/         # OpenTelemetry
 │       └── queue/        # 队列 (inmemory/redis streams/kafka)
+│   └── pkg/             # 通用工具包
+│       └── strutil/     # 字符串处理工具
 ├── Dockerfile
 ├── config.yaml.example   # 配置模板（复制为 config.yaml 使用）
 ├── .gitignore            # 已排除 config.yaml
@@ -91,7 +103,7 @@ backend/
 frontend/
 ├── src/
 │   ├── api/             # HTTP 客户端 + 类型定义
-│   ├── pages/           # 页面组件 (11 页面)
+│   ├── pages/           # 页面组件 (12 页面, 新增 InvitePage、CalendarViewPage)
 │   ├── store/           # Zustand 状态
 │   ├── utils/           # 工具函数
 │   └── components/      # 通用组件 (ErrorBoundary)
@@ -121,6 +133,9 @@ docs/                    # 文档
 | GET | /api/v1/ledgers/:id/daily-transactions | 日历数据 |
 | GET | /api/v1/ledgers/:id/export | 导出 CSV/JSON |
 | GET | /api/v1/ledgers/:id/tags | 标签列表 |
+| GET | /api/v1/ledgers/:id/tag-stats | 标签统计 |
+| GET/POST/DELETE/PUT | /api/v1/ledgers/:id/members | 成员管理 (CRUD) |
+| POST | /api/v1/ledgers/:id/leave | 退出共享账本 |
 | GET/POST | /api/v1/.../categories | 分类管理 |
 | GET/POST | /api/v1/.../transactions | 交易记录 |
 | POST | /api/v1/transactions/batch-delete | 批量删除 |
@@ -130,6 +145,8 @@ docs/                    # 文档
 | POST | /api/v1/ocr/receipt | 拍照记账 (OCR) |
 | GET | /api/v1/.../report | PDF 报表下载/预览 |
 | GET/POST | /api/v1/exchange-rates | 汇率管理 |
+| POST | /api/v1/exchange-rates/sync | 同步最新汇率 |
+| GET | /api/v1/exchange-rates/latest | 获取最新汇率 |
 
 完整 API 文档见 [docs/api-design.md](docs/api-design.md)
 
@@ -154,6 +171,7 @@ docs/                    # 文档
 - [产品规划 v1](docs/product-plan-v1.md)
 - [产品规划 v2](docs/product-plan-v2.md)
 - [产品规划 v3](docs/product-plan-v3.md)
+- [产品规划 v4](docs/product-plan-v4.md)
 - [API 设计](docs/api-design.md)
 - [路线图](docs/roadmap.md)
 - [测试计划](docs/test-plan.md)

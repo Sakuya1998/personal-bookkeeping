@@ -1,6 +1,6 @@
 # 测试计划
 
-> 文档版本: v3.0 | 最后更新: 2026-05-27
+> 文档版本: v4.0 | 最后更新: 2026-06-02
 
 ---
 
@@ -14,9 +14,9 @@
        ╱─────────╲
       ╱ 集成测试  ╲        ═ Handler + DB 集成测试
      ╱─────────────╲
-    ╱   单元测试    ╲      ═ cache / queue / task / service / middleware
+    ╱   单元测试    ╲      ═ cache / queue / task / service / middleware / otel / config
    ╱─────────────────╲
-  ╱  static analysis  ╲    ═ go vet + govulncheck + eslint
+  ╱  static analysis  ╲    ═ go vet + govulncheck + eslint + staticcheck
  ╱─────────────────────╲
 ```
 
@@ -29,15 +29,21 @@
 | `handler` | `handler_sprint3_test.go` | 570 行 | ✅ 31 个测试全部填充断言 |
 | `middleware` | `auth_test.go` | 217 行 | ✅ JWT 解析、Token 黑名单、Authorization header 检查 |
 | `service` | `exchange_test.go` | 423 行 | ✅ 汇率正向/反向计算、缓存读写、DB miss 降级 |
-| `service` | `ocr_test.go` | 新 | ✅ OCR 提取逻辑 + mock HTTP 测试 |
-| `service` | `report_test.go` | 新 | ✅ parsePeriod/calcChange/truncate 纯函数测试 |
-| `service` | `rate_updater_test.go` | 新 | ✅ httpGet/storeRates/fetchRates 测试 |
+| `service` | `ocr_test.go` | — | ✅ OCR 提取逻辑 + mock HTTP 测试 |
+| `service` | `report_test.go` | — | ✅ parsePeriod/calcChange/truncate 纯函数测试 |
+| `service` | `rate_updater_test.go` | — | ✅ httpGet/storeRates/fetchRates 测试 |
+| `service` | `auth_test.go` | 139 行 | ✅ 令牌生成/验证/黑名单/缓存降级 (6 用例) |
+| `service` | `ledger_test.go` | 201 行 | ✅ SplitTags/CSVRow/CSVHeader/FormatAmount/stringsJoin (13 用例) |
+| `service` | `recurring_test.go` | 172 行 | ✅ ComputeNextRunDate 纯函数测试 (15 用例) |
 | `task` | `tasks_test.go` | 603 行 | ✅ CSV/JSON 导入导出 + 调度器 mock 测试 |
 | `cache/memory` | `memory_test.go` | 182 行 | ✅ 100% 纯内存，独立可并行 |
 | `cache/tiered` | `tiered_test.go` | 211 行 | ✅ 纯内存，含故障降级 |
 | `cache/edge` | `cache_edge_test.go` | 278 行 | ✅ 边缘场景：并发、过期、淘汰 |
 | `queue` | `queue_test.go` | 135 行 | ✅ interface mock + 标准用例 |
 | `queue` | `queue_edge_test.go` | 126 行 | ✅ 边缘场景：超时、空队列、故障恢复 |
+| `otel` | `otel_test.go` | 295 行 | ✅ Init/Shutdown/Middleware/Metrics/Meter 接口 (14 用例) |
+| `config` | `config_test.go` | 72 行 | ✅ DSN/L1 缓存时长/默认值 (6 用例) |
+| `infra/middleware` | `ratelimit_test.go` | 99 行 | ✅ 滑动窗口/并发/突发/零速率 (7 用例) |
 | `frontend/store` | `appStore.test.ts` | 244 行 | ✅ Zustand 状态管理测试 |
 | `frontend/api` | `client.test.ts` | 153 行 | ✅ Axios 客户端、请求/响应拦截器 |
 | `frontend/utils` | `currency.test.ts` | 54 行 | ✅ 货币格式化、金额计算 |
@@ -48,12 +54,14 @@
 |------|------|------|
 | Handler 层 | v1/v2 CRUD + Analytics + Auth 完整覆盖 (1,029+344 行) | ✅ 已闭环 |
 | Handler Sprint 3 | 31 个测试全部填充断言 (21 完整→31 完整) | ✅ 已闭环 |
-| Service 层 | 汇率 + OCR + 报表 + 汇率更新全部覆盖 (4 个测试文件) | ✅ 已闭环 |
+| Service 层 | 汇率 + OCR + 报表 + 汇率更新 + auth + ledger + recurring (7 个测试文件) | ✅ 已闭环 |
 | Task 层 | CSV/JSON/调度器全部覆盖 (603 行, 含 goroutine + 去重测试) | ✅ 已闭环 |
-| Middleware | JWT/Token 黑名单/Header 检查 (217 行) | ✅ 已闭环 |
+| Middleware | JWT/Token 黑名单/Header 检查 (217 行) + 速率限制 (99 行) | ✅ 已闭环 |
+| OTEL 可观测性 | Init/Shutdown/Middleware/Metrics/Meter (295 行, 14 用例) | ✅ 已闭环 |
+| 配置加载 | DSN/L1 缓存时长/默认值 (72 行, 6 用例) | ✅ 已闭环 |
 | 前端 | Zustand + Axios + 货币工具 + BudgetPage + RecurringPage (5 文件, 47 测试) | ✅ S3 页面组件测试已补齐 |
-| 配置加载 | 无测试 | ⚠️ 低风险, 配置变更频率低 |
-| CI | 基本 lint + build + 覆盖率门禁 + govulncheck | ✅ 已增强 |
+| CI | 基本 lint + build + 覆盖率门禁 + govulncheck + staticcheck | ✅ 已增强 |
+| E2E | 无 E2E 测试 | ⚠️ 低风险, 核心功能通过集成测试覆盖 |
 
 ---
 
@@ -98,6 +106,9 @@
 | Logout | 集成 | Token 加入黑名单、黑名单 token 被拒绝 |
 | SQL injection | 静态分析 | 所有用户输入使用参数化查询 |
 | CORS | 集成 | OPTIONS preflight、Origin 校验 |
+| OTEL Init/Shutdown | 单元 | nil config、disabled、enabled with prometheus/stdout、无效 exporter |
+| OTEL Middleware | 单元 | nil meter、请求指标记录 |
+| OTEL Metrics | 单元 | Prometheus handler、metric 命名存在性、Meter 接口一致性 |
 
 ---
 
@@ -118,9 +129,12 @@ backend/
 │   │   │   └── auth_test.go                  # JWT/Token 黑名单 (217 行)
 │   │   ├── service/
 │   │   │   ├── exchange_test.go              # 汇率服务 (423 行)
-│   │   │   ├── ocr_test.go                   # OCR 提取 + mock HTTP (新)
-│   │   │   ├── report_test.go                # 报表纯函数 (新)
-│   │   │   └── rate_updater_test.go           # 汇率更新 mock (新)
+│   │   │   ├── ocr_test.go                   # OCR 提取 + mock HTTP
+│   │   │   ├── report_test.go                # 报表纯函数
+│   │   │   ├── rate_updater_test.go           # 汇率更新 mock
+│   │   │   ├── auth_test.go                  # Auth 服务 (139 行, 6 用例) ✨ v4.0
+│   │   │   ├── ledger_test.go                # 账本工具函数 (201 行, 13 用例) ✨ v4.0
+│   │   │   └── recurring_test.go             # 周期性交易 (172 行, 15 用例) ✨ v4.0
 │   │   └── task/
 │   │       └── tasks_test.go                 # 导入导出 + 调度器 mock (603 行)
 │   └── infra/
@@ -128,9 +142,15 @@ backend/
 │       │   ├── memory_test.go                # 内存缓存 (182 行)
 │       │   ├── tiered_test.go                # 分层缓存 (211 行)
 │       │   └── cache_edge_test.go            # 缓存边缘场景 (278 行)
-│       └── queue/
-│           ├── queue_test.go                 # 队列标准用例 (135 行)
-│           └── queue_edge_test.go            # 队列边缘场景 (126 行)
+│       ├── queue/
+│       │   ├── queue_test.go                 # 队列标准用例 (135 行)
+│       │   └── queue_edge_test.go            # 队列边缘场景 (126 行)
+│       ├── otel/
+│       │   └── otel_test.go                  # OTEL 可观测性 (295 行, 14 用例) ✨ v4.0
+│       ├── config/
+│       │   └── config_test.go                # 配置测试 (72 行, 6 用例) ✨ v4.0
+│       └── middleware/
+│           └── ratelimit_test.go             # 速率限制 (99 行, 7 用例) ✨ v4.0
 ```
 
 ### 3.2 前端
@@ -155,6 +175,8 @@ frontend/
 | `vitest` | JavaScript 测试框架 | 前端 |
 | `@testing-library/react` | React 组件测试 | 前端 |
 | `msw` | API Mock | 前端 |
+| `staticcheck` | Go 静态分析 | 后端 |
+| `govulncheck` | Go 漏洞检测 | 后端 |
 
 ---
 
@@ -247,6 +269,18 @@ if testing.Short() {
 - [x] 前端: RecurringPage 组件测试 (7 用例)
 - [ ] E2E 测试 (Docker Compose) — 待后续
 
+### Phase 7 — v4.0 测试补全（已闭环）
+- [x] OTEL 可观测性测试 (otel_test.go, 14 用例: Init/Shutdown/Middleware/Metrics/Meter)
+- [x] Service 层: Auth 服务测试 (auth_test.go, 6 用例: 令牌生成/验证/黑名单/缓存降级)
+- [x] Service 层: 账本工具函数测试 (ledger_test.go, 13 用例: CSVRow/FormatAmount/SplitTags/stringsJoin)
+- [x] Service 层: 周期性交易测试 (recurring_test.go, 15 用例: ComputeNextRunDate 多频率)
+- [x] 配置测试 (config_test.go, 6 用例: DSN/L1 缓存时长/默认值)
+- [x] 速率限制中间件测试 (ratelimit_test.go, 7 用例: 滑动窗口/并发/突发/零速率)
+- [x] 代码审查回归测试: 31 个 Code Review 问题对应测试增强
+- [x] 缓存空值哨兵保护测试
+- [x] golang-migrate 迁移测试 (migrate up/down 正确性)
+- [ ] E2E 测试 (Docker Compose) — 待后续
+
 ---
 
 ## 6. Sprint 3 测试 stub 清单（已修复）
@@ -266,10 +300,16 @@ if testing.Short() {
 | 调度器 | `task/scheduler.go` | ✅ mock queue + goroutine + 去重 |
 | 前端 BudgetPage | `BudgetPage.test.tsx` | ✅ 6 用例: 骨架屏/数据展示/弹窗/提交/删除 |
 | 前端 RecurringPage | `RecurringPage.test.tsx` | ✅ 7 用例: 加载/空态/渲染/弹窗/编辑/删除 |
+| Auth 服务 | `service/auth_test.go` | ✅ 6 用例: 令牌生成/验证/黑名单 ✨ v4.0 |
+| 账本工具 | `service/ledger_test.go` | ✅ 13 用例: CSVRow/FormatAmount ✨ v4.0 |
+| 周期性交易 | `service/recurring_test.go` | ✅ 15 用例: ComputeNextRunDate ✨ v4.0 |
+| 配置模块 | `config/config_test.go` | ✅ 6 用例: DSN/缓存时长 ✨ v4.0 |
+| OTEL 可观测性 | `otel/otel_test.go` | ✅ 14 用例: Init/Shutdown/Middleware ✨ v4.0 |
+| 速率限制 | `middleware/ratelimit_test.go` | ✅ 7 用例: 滑动窗口/并发 ✨ v4.0 |
 
 ---
 
-## 6. 风险与缓解
+## 7. 风险与缓解
 
 | 风险 | 影响 | 缓解 |
 |------|------|------|
@@ -277,3 +317,4 @@ if testing.Short() {
 | 浮点数精度 | 断言失败 | 使用 `math.Abs(got-want) < 1e-6` 近似比较 |
 | 缓存测试时序 | flaky test | 使用 `time.NewTimer` 而非 `time.Sleep`；mock 时间 |
 | 前端 Ant Design 版本 | 快照测试易碎 | 不用快照测试，用逻辑断言 |
+| OTEL 全局状态污染 | 测试间干扰 | 使用 resetOtel() 重置全局状态 (见 otel_test.go) |
