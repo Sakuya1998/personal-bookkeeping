@@ -29,7 +29,7 @@ type CreateCategoryInput struct {
 }
 
 type UpdateCategoryInput struct {
-	Name     *string `json:"name"`
+	Name     *string `json:"name" binding:"omitempty,max=50"`
 	Type     *string `json:"type" binding:"omitempty,oneof=income expense"`
 	Icon     *string `json:"icon"`
 	Color    *string `json:"color"`

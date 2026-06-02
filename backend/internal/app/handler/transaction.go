@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -355,7 +356,7 @@ func (h *TransactionHandler) BatchUpdate(c *gin.Context) {
 	})
 }
 
-// parseAmount 将 any 类型（string 或 number）解析为 float64。
+// parseAmount 将 any 类型（string、number、json.Number）解析为 float64。
 func parseAmount(v any) (float64, error) {
 	switch val := v.(type) {
 	case float64:
@@ -365,6 +366,15 @@ func parseAmount(v any) (float64, error) {
 		return val, nil
 	case string:
 		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid amount: %w", err)
+		}
+		if f <= 0 {
+			return 0, fmt.Errorf("amount must be positive")
+		}
+		return f, nil
+	case json.Number:
+		f, err := val.Float64()
 		if err != nil {
 			return 0, fmt.Errorf("invalid amount: %w", err)
 		}

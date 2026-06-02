@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"personal-bookkeeping/internal/app/models"
 	"personal-bookkeeping/internal/infra/queue"
+	"personal-bookkeeping/internal/pkg/strutil"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -276,8 +278,8 @@ func (s *LedgerService) Tags(ledgerID, userID uuid.UUID) ([]string, error) {
 	seen := make(map[string]struct{})
 	var tags []string
 	for _, raw := range rawTags {
-		for _, t := range splitTags(raw) {
-			t = trim(t)
+		for _, t := range strutil.SplitTags(raw) {
+			t = strutil.Trim(t)
 			if t == "" {
 				continue
 			}
@@ -553,53 +555,16 @@ func (s *LedgerService) DailyTransactions(ledgerID, userID uuid.UUID, year, mont
 	return items, nil
 }
 
-// ---------- helpers ----------
-
-// splitTags 将逗号分隔的标签字符串拆分为切片。
-func splitTags(raw string) []string {
-	var parts []string
-	current := ""
-	for _, ch := range raw {
-		if ch == ',' {
-			parts = append(parts, current)
-			current = ""
-		} else {
-			current += string(ch)
-		}
-	}
-	if current != "" {
-		parts = append(parts, current)
-	}
-	return parts
-}
-
-// trim 去除字符串首尾的空格和制表符。
-func trim(s string) string {
-	start := 0
-	end := len(s)
-	for start < end && (s[start] == ' ' || s[start] == '\t') {
-		start++
-	}
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
-		end--
-	}
-	return s[start:end]
-}
-
 // CSVRow 将单条交易转换为 CSV 行（不含换行）。
 func CSVRow(t models.Transaction) string {
-	desc := ""
-	if t.Description != nil {
-		desc = *t.Description
-	}
-	return stringsJoin([]string{
+	return strings.Join([]string{
 		t.ID.String(),
 		t.TransactionDate,
 		t.Type,
 		fmt.Sprintf("%.2f", t.Amount),
 		t.Currency,
 		fmt.Sprintf("%.2f", t.BaseAmount),
-		desc,
+		strutil.NullableStr(t.Description),
 		t.CategoryID.String(),
 	}, ",")
 }
@@ -612,16 +577,4 @@ func CSVHeader() []string {
 // FormatAmount 使用 strconv 格式化金额（保留两位小数）。
 func FormatAmount(v float64) string {
 	return strconv.FormatFloat(v, 'f', 2, 64)
-}
-
-// stringsJoin 使用指定分隔符合并字符串切片。
-func stringsJoin(parts []string, sep string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	out := parts[0]
-	for i := 1; i < len(parts); i++ {
-		out += sep + parts[i]
-	}
-	return out
 }

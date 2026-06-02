@@ -28,24 +28,22 @@ func (s *RecurringService) Create(
 	endDate *string,
 ) (*models.RecurringRule, error) {
 	// 验证账本所有权
-	var ledger models.Ledger
-	if err := s.DB.Where("id = ? AND user_id = ?", ledgerID, userID).First(&ledger).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrLedgerNotFound
-		}
+	var ledgerCount int64
+	if err := s.DB.Model(&models.Ledger{}).Where("id = ? AND user_id = ?", ledgerID, userID).Count(&ledgerCount).Error; err != nil {
 		return nil, fmt.Errorf("failed to query ledger: %w", err)
 	}
-	_ = ledger
+	if ledgerCount == 0 {
+		return nil, ErrLedgerNotFound
+	}
 
 	// 验证分类所有权
-	var cat models.Category
-	if err := s.DB.Where("id = ? AND user_id = ?", categoryID, userID).First(&cat).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
-		}
+	var catCount int64
+	if err := s.DB.Model(&models.Category{}).Where("id = ? AND user_id = ?", categoryID, userID).Count(&catCount).Error; err != nil {
 		return nil, fmt.Errorf("failed to query category: %w", err)
 	}
-	_ = cat
+	if catCount == 0 {
+		return nil, ErrNotFound
+	}
 
 	if currency == "" {
 		currency = "CNY"

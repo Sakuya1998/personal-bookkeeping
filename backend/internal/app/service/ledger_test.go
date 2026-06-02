@@ -1,31 +1,33 @@
 package service
 
 import (
+	"strings"
 	"testing"
 
 	"personal-bookkeeping/internal/app/models"
+	"personal-bookkeeping/internal/pkg/strutil"
 
 	"github.com/google/uuid"
 )
 
-// ---------- splitTags ----------
+// ---------- SplitTags ----------
 
 func TestSplitTags_Empty(t *testing.T) {
-	got := splitTags("")
+	got := strutil.SplitTags("")
 	if len(got) != 0 {
 		t.Fatalf("expected empty slice, got %v", got)
 	}
 }
 
 func TestSplitTags_Single(t *testing.T) {
-	got := splitTags("hello")
+	got := strutil.SplitTags("hello")
 	if len(got) != 1 || got[0] != "hello" {
 		t.Fatalf("expected ['hello'], got %v", got)
 	}
 }
 
 func TestSplitTags_Multiple(t *testing.T) {
-	got := splitTags("a,b,c")
+	got := strutil.SplitTags("a,b,c")
 	if len(got) != 3 {
 		t.Fatalf("expected 3 parts, got %d: %v", len(got), got)
 	}
@@ -35,13 +37,13 @@ func TestSplitTags_Multiple(t *testing.T) {
 }
 
 func TestSplitTags_TrailingComma(t *testing.T) {
-	got := splitTags("a,b,")
+	got := strutil.SplitTags("a,b,")
 	if len(got) != 2 {
 		t.Fatalf("expected 2 parts, got %d: %v", len(got), got)
 	}
 }
 
-// ---------- trim ----------
+// ---------- Trim ----------
 
 func TestTrim(t *testing.T) {
 	tests := []struct {
@@ -57,9 +59,9 @@ func TestTrim(t *testing.T) {
 		{"   ", ""},
 	}
 	for _, tt := range tests {
-		got := trim(tt.in)
+		got := strutil.Trim(tt.in)
 		if got != tt.want {
-			t.Errorf("trim(%q) = %q, want %q", tt.in, got, tt.want)
+			t.Errorf("Trim(%q) = %q, want %q", tt.in, got, tt.want)
 		}
 	}
 }
@@ -161,28 +163,28 @@ func TestFormatAmount(t *testing.T) {
 	}
 }
 
-// ---------- stringsJoin ----------
+// ---------- stringsJoin (stdlib) ----------
 
 func TestStringsJoin_Empty(t *testing.T) {
-	got := stringsJoin(nil, ",")
+	got := strings.Join(nil, ",")
 	if got != "" {
 		t.Fatalf("expected empty, got %q", got)
 	}
-	got = stringsJoin([]string{}, ",")
+	got = strings.Join([]string{}, ",")
 	if got != "" {
 		t.Fatalf("expected empty, got %q", got)
 	}
 }
 
 func TestStringsJoin_Single(t *testing.T) {
-	got := stringsJoin([]string{"a"}, ",")
+	got := strings.Join([]string{"a"}, ",")
 	if got != "a" {
 		t.Fatalf("expected 'a', got %q", got)
 	}
 }
 
 func TestStringsJoin_Multiple(t *testing.T) {
-	got := stringsJoin([]string{"a", "b", "c"}, ",")
+	got := strings.Join([]string{"a", "b", "c"}, ",")
 	if got != "a,b,c" {
 		t.Fatalf("expected 'a,b,c', got %q", got)
 	}

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"personal-bookkeeping/internal/app/models"
@@ -21,7 +22,7 @@ func NewMemberHandler(memberSvc *service.MemberService, ledgerSvc *service.Ledge
 }
 
 type InviteInput struct {
-	Username string `json:"username" binding:"required"`
+	Username string `json:"username" binding:"required,max=50"`
 }
 
 type UpdateRoleInput struct {
@@ -37,8 +38,8 @@ type UpdateRoleInput struct {
 // @Success      200 {object} Response
 // @Router       /ledgers/{ledger_id}/members [get]
 func (h *MemberHandler) ListMembers(c *gin.Context) {
-	ledgerID := parseUUID(c.Param("ledger_id"))
-	if ledgerID == nil {
+	ledgerID, err := parseUUID(c.Param("ledger_id"))
+	if err != nil {
 		BadRequest(c, "invalid ledger_id")
 		return
 	}
@@ -63,8 +64,8 @@ func (h *MemberHandler) ListMembers(c *gin.Context) {
 // @Success      200 {object} Response
 // @Router       /ledgers/{ledger_id}/members [post]
 func (h *MemberHandler) Invite(c *gin.Context) {
-	ledgerID := parseUUID(c.Param("ledger_id"))
-	if ledgerID == nil {
+	ledgerID, err := parseUUID(c.Param("ledger_id"))
+	if err != nil {
 		BadRequest(c, "invalid ledger_id")
 		return
 	}
@@ -109,10 +110,14 @@ func (h *MemberHandler) Invite(c *gin.Context) {
 // @Success      200 {object} Response
 // @Router       /ledgers/{ledger_id}/members/{user_id} [delete]
 func (h *MemberHandler) Remove(c *gin.Context) {
-	ledgerID := parseUUID(c.Param("ledger_id"))
-	userID := parseUUID(c.Param("user_id"))
-	if ledgerID == nil || userID == nil {
-		BadRequest(c, "invalid id")
+	ledgerID, err := parseUUID(c.Param("ledger_id"))
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
+		return
+	}
+	userID, err := parseUUID(c.Param("user_id"))
+	if err != nil {
+		BadRequest(c, "invalid user_id")
 		return
 	}
 
@@ -147,8 +152,8 @@ func (h *MemberHandler) Remove(c *gin.Context) {
 // @Success      200 {object} Response
 // @Router       /ledgers/{ledger_id}/leave [post]
 func (h *MemberHandler) Leave(c *gin.Context) {
-	ledgerID := parseUUID(c.Param("ledger_id"))
-	if ledgerID == nil {
+	ledgerID, err := parseUUID(c.Param("ledger_id"))
+	if err != nil {
 		BadRequest(c, "invalid ledger_id")
 		return
 	}
@@ -183,10 +188,14 @@ func (h *MemberHandler) Leave(c *gin.Context) {
 // @Success      200 {object} Response
 // @Router       /ledgers/{ledger_id}/members/{user_id} [put]
 func (h *MemberHandler) UpdateRole(c *gin.Context) {
-	ledgerID := parseUUID(c.Param("ledger_id"))
-	targetUserID := parseUUID(c.Param("user_id"))
-	if ledgerID == nil || targetUserID == nil {
-		BadRequest(c, "invalid id")
+	ledgerID, err := parseUUID(c.Param("ledger_id"))
+	if err != nil {
+		BadRequest(c, "invalid ledger_id")
+		return
+	}
+	targetUserID, err := parseUUID(c.Param("user_id"))
+	if err != nil {
+		BadRequest(c, "invalid user_id")
 		return
 	}
 
@@ -218,10 +227,10 @@ func (h *MemberHandler) UpdateRole(c *gin.Context) {
 	RespondJSON(c, http.StatusOK, nil)
 }
 
-func parseUUID(s string) *uuid.UUID {
+func parseUUID(s string) (*uuid.UUID, error) {
 	id, err := uuid.Parse(s)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("invalid UUID: %w", err)
 	}
-	return &id
+	return &id, nil
 }

@@ -28,8 +28,8 @@ type RegisterInput struct {
 }
 
 type LoginInput struct {
-	Username string `json:"username" binding:"required" example:"alice"`
-	Password string `json:"password" binding:"required" example:"secret123"`
+	Username string `json:"username" binding:"required,max=50" example:"alice"`
+	Password string `json:"password" binding:"required,max=100" example:"secret123"`
 }
 
 type ChangePasswordInput struct {

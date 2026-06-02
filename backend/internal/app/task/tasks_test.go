@@ -8,6 +8,7 @@ import (
 
 	"personal-bookkeeping/internal/app/models"
 	"personal-bookkeeping/internal/infra/queue"
+	"personal-bookkeeping/internal/pkg/strutil"
 
 	"github.com/google/uuid"
 )
@@ -52,7 +53,7 @@ func TestParseCSV_Valid(t *testing.T) {
 		t.Errorf("expected exchange rate 1.0, got %f", txn.ExchangeRate)
 	}
 	if txn.Description == nil || *txn.Description != "coffee" {
-		t.Errorf("expected description 'coffee', got %v", nullableStr(txn.Description))
+		t.Errorf("expected description 'coffee', got %v", strutil.NullableStr(txn.Description))
 	}
 	if txn.CategoryID.String() != "33333333-3333-3333-3333-333333333333" {
 		t.Errorf("expected category 33333333-..., got %s", txn.CategoryID.String())
@@ -76,7 +77,7 @@ func TestParseCSV_Valid(t *testing.T) {
 		t.Errorf("expected type income, got %s", txn2.Type)
 	}
 	if txn2.Description == nil || *txn2.Description != "salary" {
-		t.Errorf("expected description 'salary', got %v", nullableStr(txn2.Description))
+		t.Errorf("expected description 'salary', got %v", strutil.NullableStr(txn2.Description))
 	}
 	if txn2.CategoryID != uuid.Nil {
 		t.Errorf("expected nil category_id for empty field, got %s", txn2.CategoryID.String())
@@ -343,10 +344,10 @@ func TestDecodePayload_NilInput(t *testing.T) {
 	}
 }
 
-// ------------------ nullableStr tests ------------------
+// ------------------ strutil.NullableStr tests ------------------
 
 func TestNullableStr_Nil(t *testing.T) {
-	got := nullableStr(nil)
+	got := strutil.NullableStr(nil)
 	if got != "" {
 		t.Errorf("expected empty string for nil pointer, got %q", got)
 	}
@@ -354,7 +355,7 @@ func TestNullableStr_Nil(t *testing.T) {
 
 func TestNullableStr_NonNil(t *testing.T) {
 	s := "hello"
-	got := nullableStr(&s)
+	got := strutil.NullableStr(&s)
 	if got != "hello" {
 		t.Errorf("expected 'hello', got %q", got)
 	}
@@ -362,7 +363,7 @@ func TestNullableStr_NonNil(t *testing.T) {
 
 func TestNullableStr_EmptyString(t *testing.T) {
 	s := ""
-	got := nullableStr(&s)
+	got := strutil.NullableStr(&s)
 	if got != "" {
 		t.Errorf("expected empty string, got %q", got)
 	}
@@ -512,7 +513,7 @@ func TestParseCSV_ExtraWhitespace(t *testing.T) {
 	}
 	// But string values like description preserve whitespace
 	if txns[0].Description == nil || *txns[0].Description != " coffee with space " {
-		t.Errorf("expected description ' coffee with space ', got %v", nullableStr(txns[0].Description))
+		t.Errorf("expected description ' coffee with space ', got %v", strutil.NullableStr(txns[0].Description))
 	}
 }
 func TestParseCSV_ZeroAmount(t *testing.T) {

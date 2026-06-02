@@ -9,6 +9,7 @@ import (
 
 	"personal-bookkeeping/internal/app/models"
 	"personal-bookkeeping/internal/app/service"
+	"personal-bookkeeping/internal/pkg/strutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,7 +32,7 @@ type CreateLedgerInput struct {
 }
 
 type UpdateLedgerInput struct {
-	Name         *string `json:"name" example:"新账本名"`
+	Name         *string `json:"name" binding:"omitempty,max=100" example:"新账本名"`
 	Description  *string `json:"description"`
 	BaseCurrency *string `json:"base_currency"`
 	Icon         *string `json:"icon"`
@@ -376,10 +377,7 @@ func writeCSVStream(c *gin.Context, transactions []models.Transaction) {
 	w := csv.NewWriter(c.Writer)
 	w.Write(csvHeader)
 	for _, t := range transactions {
-		desc := ""
-		if t.Description != nil {
-			desc = *t.Description
-		}
+		desc := strutil.NullableStr(t.Description)
 		w.Write([]string{
 			t.ID.String(),
 			t.TransactionDate,
@@ -395,34 +393,4 @@ func writeCSVStream(c *gin.Context, transactions []models.Transaction) {
 	if err := w.Error(); err != nil {
 		slog.Error("csv export flush error", "error", err)
 	}
-}
-
-func splitTags(raw string) []string {
-	// tags are stored comma-separated
-	var parts []string
-	current := ""
-	for _, ch := range raw {
-		if ch == ',' {
-			parts = append(parts, current)
-			current = ""
-		} else {
-			current += string(ch)
-		}
-	}
-	if current != "" {
-		parts = append(parts, current)
-	}
-	return parts
-}
-
-func trim(s string) string {
-	start := 0
-	end := len(s)
-	for start < end && (s[start] == ' ' || s[start] == '\t') {
-		start++
-	}
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
-		end--
-	}
-	return s[start:end]
 }

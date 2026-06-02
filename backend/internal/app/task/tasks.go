@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"personal-bookkeeping/internal/app/models"
-	"personal-bookkeeping/internal/infra/database"
 	"personal-bookkeeping/internal/app/service"
 	"personal-bookkeeping/internal/infra/config"
+	"personal-bookkeeping/internal/infra/database"
 	"personal-bookkeeping/internal/infra/queue"
+	"personal-bookkeeping/internal/pkg/strutil"
 
 	"github.com/google/uuid"
 )
@@ -165,7 +166,7 @@ func writeCSV(transactions []models.Transaction) error {
 			fmt.Sprintf("%.2f", t.Amount),
 			t.Currency,
 			fmt.Sprintf("%.2f", t.BaseAmount),
-			nullableStr(t.Description),
+			strutil.NullableStr(t.Description),
 			t.CategoryID.String(),
 		})
 	}
@@ -287,14 +288,6 @@ func parseJSON(content, userID, ledgerID string) ([]models.Transaction, error) {
 	}
 	return txns, nil
 }
-
-func nullableStr(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
 // handleProcessRecurring 每日检查周期性规则，自动生成交易记录。
 func handleProcessRecurring(ctx context.Context, task queue.Task) error {
 	db := database.GetDB()

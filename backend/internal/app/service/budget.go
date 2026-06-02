@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"personal-bookkeeping/internal/app/models"
+	"personal-bookkeeping/internal/pkg/strutil"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -111,7 +112,7 @@ func (s *BudgetService) Status(ledgerID, userID uuid.UUID, month string) ([]Budg
 			BudgetID:   b.BudgetID.String(),
 			CategoryID: b.CategoryID.String(),
 			Name:       cat.Name,
-			Icon:       stringPtr(cat.Icon),
+			Icon:       strutil.NullableStr(cat.Icon),
 			Budget:     b.Amount,
 			Spent:      spent,
 			Percentage: pct,
@@ -208,12 +209,4 @@ func (s *BudgetService) CheckBudgetOverrun(userID, ledgerID, categoryID uuid.UUI
 	}
 
 	return false
-}
-
-// stringPtr 安全解引用 *string，nil 返回空串
-func stringPtr(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
 }

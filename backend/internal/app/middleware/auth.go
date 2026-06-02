@@ -70,9 +70,6 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 // userCacheTTL is how long a user lookup stays cached (reduces N+1 DB queries).
 const userCacheTTL = 5 * time.Minute
 
-// userCacheKey returns the cache key for a user lookup.
-func userCacheKey(userID string) string { return "user:" + userID }
-
 // getUserWithCache returns the user model, caching the result for userCacheTTL.
 // On cache miss, queries DB and populates cache.
 // Non-existent users are cached with a short TTL (cache.NullSentinel) to prevent
@@ -85,7 +82,7 @@ func getUserWithCache(ctx context.Context, userID, username string) (*models.Use
 
 	// Check cache
 	if cacheInst := cache.GetDefault(); cacheInst != nil {
-		if data, err := cacheInst.Get(ctx, userCacheKey(userID)); err == nil {
+		if data, err := cacheInst.Get(ctx, "user:"+userID); err == nil {
 			if data == cache.NullSentinel {
 				// Cached miss — DB already confirmed this user doesn't exist
 				return nil, gorm.ErrRecordNotFound
@@ -107,7 +104,7 @@ func getUserWithCache(ctx context.Context, userID, username string) (*models.Use
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// Cache the miss to absorb repeated requests for non-existent users
 			if cacheInst := cache.GetDefault(); cacheInst != nil {
-				_ = cacheInst.Set(ctx, userCacheKey(userID), cache.NullSentinel, cache.NullCacheTTL)
+				_ = cacheInst.Set(ctx, "user:"+userID, cache.NullSentinel, cache.NullCacheTTL)
 			}
 			return nil, err
 		}
@@ -116,7 +113,7 @@ func getUserWithCache(ctx context.Context, userID, username string) (*models.Use
 
 	// Populate cache
 	if cacheInst := cache.GetDefault(); cacheInst != nil {
-		_ = cacheInst.Set(ctx, userCacheKey(userID), "1", userCacheTTL)
+		_ = cacheInst.Set(ctx, "user:"+userID, "1", userCacheTTL)
 	}
 
 	return &user, nil
