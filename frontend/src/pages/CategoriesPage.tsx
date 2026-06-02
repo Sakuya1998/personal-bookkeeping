@@ -13,6 +13,7 @@ import ContentCard from '../components/layout/ContentCard';
 const CategoriesPage: React.FC = () => {
   const { t } = useTranslation();
   const { currentLedger } = useAppStore();
+  const canManage = (useAppStore.getState().currentRole === 'owner' || useAppStore.getState().currentRole === 'admin');
   const [income, setIncome] = useState<Category[]>([]);
   const [expense, setExpense] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,14 +94,15 @@ const CategoriesPage: React.FC = () => {
     { title: t('categories.sort'), dataIndex: 'sort_order', key: 'sort', width: 60 },
     {
       title: t('categories.action'), key: 'action', width: 100,
-      render: (_: unknown, r: Category) => (
-        <Space>
+      render: (_: unknown, r: Category) => {
+        if (!canManage) return null;
+        return <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
           <Popconfirm title={t('common.confirmDelete')} onConfirm={() => handleDelete(r.id)}>
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
-        </Space>
-      ),
+        </Space>;
+      },
     },
   ];
 

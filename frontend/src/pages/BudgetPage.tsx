@@ -18,6 +18,7 @@ import ContentCard from '../components/layout/ContentCard';
 const BudgetPage: React.FC = () => {
   const { t } = useTranslation();
   const { currentLedger } = useAppStore();
+  const canManage = (useAppStore.getState().currentRole === 'owner' || useAppStore.getState().currentRole === 'admin');
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [status, setStatus] = useState<BudgetStatusItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -108,11 +109,12 @@ const BudgetPage: React.FC = () => {
     },
     {
       title: t('categories.action'), key: 'action', width: 80,
-      render: (_: unknown, r: Budget) => (
-        <Popconfirm title={t('common.confirmDelete')} onConfirm={() => handleDelete(r.id)}>
+      render: (_: unknown, r: Budget) => {
+        if (!canManage) return null;
+        return <Popconfirm title={t('common.confirmDelete')} onConfirm={() => handleDelete(r.id)}>
           <Button size="small" danger icon={<DeleteOutlined />} />
-        </Popconfirm>
-      ),
+        </Popconfirm>;
+      },
     },
   ];
 
@@ -188,7 +190,7 @@ const BudgetPage: React.FC = () => {
               />
             </Space>
           )}
-          right={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('budgets.add')}</Button>}
+          right={canManage ? <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('budgets.add')}</Button> : null}
         />
       )}
     >

@@ -19,6 +19,7 @@ import CurrencySelect from '../components/CurrencySelect';
 const RecurringPage: React.FC = () => {
   const { t } = useTranslation();
   const { currentLedger } = useAppStore();
+  const canManage = (useAppStore.getState().currentRole === 'owner' || useAppStore.getState().currentRole === 'admin');
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
@@ -167,14 +168,15 @@ const RecurringPage: React.FC = () => {
     },
     {
       title: t('categories.action'), key: 'action', width: 100,
-      render: (_: unknown, r: RecurringRule) => (
-        <Space>
+      render: (_: unknown, r: RecurringRule) => {
+        if (!canManage) return null;
+        return <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
           <Popconfirm title={t('recurring.deleteConfirm')} onConfirm={() => handleDelete(r.id)}>
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
-        </Space>
-      ),
+        </Space>;
+      },
     },
   ], [t, FREQ_LABELS]);
 
@@ -193,7 +195,7 @@ const RecurringPage: React.FC = () => {
               {t('common.refresh')}
             </Button>
           )}
-          right={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('recurring.add')}</Button>}
+          right={canManage ? <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('recurring.add')}</Button> : null}
         />
       )}
     >
