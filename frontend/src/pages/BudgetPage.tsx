@@ -18,7 +18,8 @@ import ContentCard from '../components/layout/ContentCard';
 const BudgetPage: React.FC = () => {
   const { t } = useTranslation();
   const { currentLedger } = useAppStore();
-  const canManage = (useAppStore.getState().currentRole === 'owner' || useAppStore.getState().currentRole === 'admin');
+  const currentRole = useAppStore(s => s.currentRole);
+  const canManage = currentRole === 'owner' || currentRole === 'admin';
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [status, setStatus] = useState<BudgetStatusItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -30,7 +31,7 @@ const BudgetPage: React.FC = () => {
 
   const loadData = useCallback(async () => {
     if (!currentLedger) return;
-    queueMicrotask(() => setLoading(true));
+    setLoading(true);
     try {
       const [budRes, statRes] = await Promise.all([
         client.get<ApiResponse<Budget[]>>(`/budgets?month=${month}`),

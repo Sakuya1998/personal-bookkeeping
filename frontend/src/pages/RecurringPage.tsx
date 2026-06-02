@@ -19,7 +19,8 @@ import CurrencySelect from '../components/CurrencySelect';
 const RecurringPage: React.FC = () => {
   const { t } = useTranslation();
   const { currentLedger } = useAppStore();
-  const canManage = (useAppStore.getState().currentRole === 'owner' || useAppStore.getState().currentRole === 'admin');
+  const currentRole = useAppStore(s => s.currentRole);
+  const canManage = currentRole === 'owner' || currentRole === 'admin';
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
@@ -52,7 +53,7 @@ const RecurringPage: React.FC = () => {
 
   const loadRules = useCallback(async () => {
     if (!currentLedger) return;
-    queueMicrotask(() => setLoading(true));
+    setLoading(true);
     try {
       const res = await client.get<ApiResponse<RecurringRule[]>>('/recurring');
       setRules(res.data.data.filter((r) => r.ledger_id === currentLedger.id));

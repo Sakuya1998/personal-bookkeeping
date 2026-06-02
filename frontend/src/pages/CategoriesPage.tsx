@@ -13,7 +13,8 @@ import ContentCard from '../components/layout/ContentCard';
 const CategoriesPage: React.FC = () => {
   const { t } = useTranslation();
   const { currentLedger } = useAppStore();
-  const canManage = (useAppStore.getState().currentRole === 'owner' || useAppStore.getState().currentRole === 'admin');
+  const currentRole = useAppStore(s => s.currentRole);
+  const canManage = currentRole === 'owner' || currentRole === 'admin';
   const [income, setIncome] = useState<Category[]>([]);
   const [expense, setExpense] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,7 @@ const CategoriesPage: React.FC = () => {
 
   const load = useCallback(async () => {
     if (!currentLedger) return;
-    queueMicrotask(() => setLoading(true));
+    setLoading(true);
     try {
       const res = await client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`);
       setIncome(res.data.data.filter((c: Category) => c.type === 'income'));

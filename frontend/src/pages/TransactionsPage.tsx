@@ -33,7 +33,7 @@ const TransactionsPage: React.FC = () => {
 
   const loadTxns = useCallback(async () => {
     if (!currentLedger) return;
-    queueMicrotask(() => setLoading(true));
+    setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
       Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });

@@ -25,7 +25,7 @@ const ExchangeRatesPage: React.FC = () => {
   }>({ from_currency: '', to_currency: '', source: '', dateRange: null });
 
   const loadRates = useCallback(async () => {
-    queueMicrotask(() => setLoading(true));
+    setLoading(true);
     try {
       const res = await client.get<ApiResponse<ExchangeRate[]>>('/exchange-rates');
       setRates(res.data.data);

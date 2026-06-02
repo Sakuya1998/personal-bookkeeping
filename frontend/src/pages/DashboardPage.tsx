@@ -40,7 +40,7 @@ const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     if (!currentLedger) return;
-    queueMicrotask(() => setLoading(true));
+    setLoading(true);
     Promise.all([
       client.get<ApiResponse<LedgerSummary>>(`/ledgers/${currentLedger.id}/summary`),
       client.get<ApiResponse<MonthlyTrendItem[]>>(`/ledgers/${currentLedger.id}/monthly-trend?months=6`),
