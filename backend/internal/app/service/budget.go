@@ -7,6 +7,7 @@ import (
 	"personal-bookkeeping/internal/app/models"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // Sentinel errors for service layer.
@@ -28,30 +29,37 @@ type BudgetStatusItem struct {
 
 // UpsertBudget 创建或更新预算（同一 ledger + category + month 覆盖）
 func (s *BudgetService) UpsertBudget(userID, ledgerID uuid.UUID, categoryID *uuid.UUID, month string, amount float64) (*models.Budget, error) {
-	// Delete existing matching budget
-	delQuery := s.DB.Where("user_id = ? AND ledger_id = ? AND month = ?", userID, ledgerID, month)
-	if categoryID != nil {
-		delQuery = delQuery.Where("category_id = ?", categoryID)
-	} else {
-		delQuery = delQuery.Where("category_id IS NULL")
-	}
-	if err := delQuery.Delete(&models.Budget{}).Error; err != nil {
-		return nil, fmt.Errorf("failed to clear existing budget: %w", err)
-	}
+	var budget *models.Budget
+	err := s.DB.Transaction(func(tx *gorm.DB) error {
+		// Delete existing matching budget
+		delQuery := tx.Where("user_id = ? AND ledger_id = ? AND month = ?", userID, ledgerID, month)
+		if categoryID != nil {
+			delQuery = delQuery.Where("category_id = ?", categoryID)
+		} else {
+			delQuery = delQuery.Where("category_id IS NULL")
+		}
+		if err := delQuery.Delete(&models.Budget{}).Error; err != nil {
+			return fmt.Errorf("failed to clear existing budget: %w", err)
+		}
 
-	budget := models.Budget{
-		UserID:     userID,
-		LedgerID:   ledgerID,
-		CategoryID: categoryID,
-		Month:      month,
-		Amount:     amount,
-	}
+		b := models.Budget{
+			UserID:     userID,
+			LedgerID:   ledgerID,
+			CategoryID: categoryID,
+			Month:      month,
+			Amount:     amount,
+		}
 
-	if err := s.DB.Create(&budget).Error; err != nil {
-		return nil, fmt.Errorf("failed to create budget: %w", err)
+		if err := tx.Create(&b).Error; err != nil {
+			return fmt.Errorf("failed to create budget: %w", err)
+		}
+		budget = &b
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-
-	return &budget, nil
+	return budget, nil
 }
 
 // ListBudgets 查询预算列表

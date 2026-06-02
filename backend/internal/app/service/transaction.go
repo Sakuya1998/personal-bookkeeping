@@ -250,50 +250,59 @@ func (s *TransactionService) ListTransactions(
 
 // BatchDelete 批量删除交易（验证所有权）
 func (s *TransactionService) BatchDelete(ids []uuid.UUID, userID uuid.UUID) (int64, error) {
-	// 验证所有权
-	var count int64
-	if err := s.DB.Model(&models.Transaction{}).
-		Where("id IN ? AND user_id = ?", ids, userID).
-		Count(&count).Error; err != nil {
-		return 0, err
-	}
-	if count != int64(len(ids)) {
-		return 0, gorm.ErrRecordNotFound
-	}
+	var rowsAffected int64
+	err := s.DB.Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&models.Transaction{}).
+			Where("id IN ? AND user_id = ?", ids, userID).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count != int64(len(ids)) {
+			return gorm.ErrRecordNotFound
+		}
 
-	result := s.DB.Where("id IN ?", ids).Delete(&models.Transaction{})
-	if result.Error != nil {
-		return 0, result.Error
-	}
-	return result.RowsAffected, nil
+		result := tx.Where("id IN ?", ids).Delete(&models.Transaction{})
+		if result.Error != nil {
+			return result.Error
+		}
+		rowsAffected = result.RowsAffected
+		return nil
+	})
+	return rowsAffected, err
 }
 
 // BatchUpdateCategory 批量修改交易分类（验证所有权）
 func (s *TransactionService) BatchUpdateCategory(ids []uuid.UUID, categoryID uuid.UUID, userID uuid.UUID) (int64, error) {
-	// 验证分类存在且属于用户
-	var cat models.Category
-	if err := s.DB.Where("id = ? AND user_id = ?", categoryID, userID).First(&cat).Error; err != nil {
-		return 0, err
-	}
+	var rowsAffected int64
+	err := s.DB.Transaction(func(tx *gorm.DB) error {
+		// 验证分类存在且属于用户
+		var cat models.Category
+		if err := tx.Where("id = ? AND user_id = ?", categoryID, userID).First(&cat).Error; err != nil {
+			return err
+		}
 
-	// 验证交易所有权
-	var count int64
-	if err := s.DB.Model(&models.Transaction{}).
-		Where("id IN ? AND user_id = ?", ids, userID).
-		Count(&count).Error; err != nil {
-		return 0, err
-	}
-	if count != int64(len(ids)) {
-		return 0, gorm.ErrRecordNotFound
-	}
+		// 验证交易所有权
+		var count int64
+		if err := tx.Model(&models.Transaction{}).
+			Where("id IN ? AND user_id = ?", ids, userID).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count != int64(len(ids)) {
+			return gorm.ErrRecordNotFound
+		}
 
-	result := s.DB.Model(&models.Transaction{}).
-		Where("id IN ?", ids).
-		Update("category_id", categoryID)
-	if result.Error != nil {
-		return 0, result.Error
-	}
-	return result.RowsAffected, nil
+		result := tx.Model(&models.Transaction{}).
+			Where("id IN ?", ids).
+			Update("category_id", categoryID)
+		if result.Error != nil {
+			return result.Error
+		}
+		rowsAffected = result.RowsAffected
+		return nil
+	})
+	return rowsAffected, err
 }
 
 // checkBudgetOverrun 检查交易是否会导致预算超支

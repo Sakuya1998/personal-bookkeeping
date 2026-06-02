@@ -176,6 +176,18 @@ func (s *LedgerService) UpdateLedger(id, userID uuid.UUID, updates map[string]in
 
 // DeleteLedger 级联删除账本及其关联数据（transactions, categories, budgets, recurring_rules）。
 func (s *LedgerService) DeleteLedger(id, userID uuid.UUID) error {
+	// 验证成员权限：仅 owner 可删除账本
+	var member models.LedgerMember
+	if err := s.DB.Where("ledger_id = ? AND user_id = ?", id, userID).First(&member).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrLedgerNotFound
+		}
+		return fmt.Errorf("database error: %w", err)
+	}
+	if member.Role != models.RoleOwner {
+		return errors.New("only the owner can delete the ledger")
+	}
+
 	err := s.DB.Transaction(func(tx *gorm.DB) error {
 		// 先删除关联表记录，再删账本（外键约束）
 		// Delete member records first
