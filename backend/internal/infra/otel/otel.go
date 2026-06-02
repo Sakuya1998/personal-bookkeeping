@@ -124,6 +124,9 @@ func Init(cfg *Config) (*OTEL, error) {
 
 // Shutdown 清理所有 OTEL 资源。
 func (o *OTEL) Shutdown() {
+	if o == nil {
+		return
+	}
 	for _, fn := range o.shutdownFuncs {
 		if err := fn(context.Background()); err != nil {
 			slog.Warn("otel shutdown error", "error", err)
