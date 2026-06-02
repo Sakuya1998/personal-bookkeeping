@@ -352,13 +352,20 @@ func computeRecurringNext(from time.Time, freq string, interval int, dayOfMonth,
 		if weekday == nil {
 			return from.AddDate(0, 0, 7*interval)
 		}
-		return from.AddDate(0, 0, 7*interval)
+		target := time.Weekday(*weekday)
+		diff := int((target - from.Weekday() + 7) % 7)
+		if diff == 0 {
+			// Already on the target weekday, advance by interval weeks
+			return from.AddDate(0, 0, interval*7)
+		}
+		// Move to next occurrence of target weekday, then add (interval-1) weeks
+		return from.AddDate(0, 0, diff+(interval-1)*7)
 	case "monthly":
 		dom := 1
 		if dayOfMonth != nil {
 			dom = *dayOfMonth
 		}
-		next := time.Date(from.Year(), from.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		next := time.Date(from.Year(), from.Month()+time.Month(interval), 1, 0, 0, 0, 0, time.UTC)
 		lastDay := time.Date(next.Year(), next.Month()+1, 0, 0, 0, 0, 0, time.UTC).Day()
 		if dom > lastDay {
 			dom = lastDay

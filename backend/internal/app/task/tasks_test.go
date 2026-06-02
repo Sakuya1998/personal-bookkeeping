@@ -620,3 +620,130 @@ func TestStartExchangeRateScheduler_NilQueue(t *testing.T) {
 	// Should log warning and return immediately, not panic
 	StartExchangeRateScheduler(context.Background(), nil)
 }
+
+// ------------------ computeRecurringNext tests ------------------
+
+func weekdayPtr(w int) *int { return &w }
+
+func TestComputeRecurringNext_Daily(t *testing.T) {
+	from := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	got := computeRecurringNext(from, "daily", 3, nil, nil)
+	want := time.Date(2024, 1, 4, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("daily interval=3: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_WeeklyNoWeekday(t *testing.T) {
+	from := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC) // Monday
+	got := computeRecurringNext(from, "weekly", 2, nil, nil)
+	want := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC) // +14 days
+	if !got.Equal(want) {
+		t.Errorf("weekly nil weekday interval=2: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_WeeklyCustomWeekday(t *testing.T) {
+	// from = Wednesday 2024-01-03, target weekday = Monday (1)
+	from := time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)
+	got := computeRecurringNext(from, "weekly", 1, nil, weekdayPtr(1)) // Monday
+	// Next Monday from Wednesday is 5 days later: 2024-01-08
+	want := time.Date(2024, 1, 8, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("weekly weekday=Mon from Wed interval=1: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_WeeklySameWeekday(t *testing.T) {
+	// from = Monday 2024-01-01, target weekday = Monday (1)
+	from := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	got := computeRecurringNext(from, "weekly", 1, nil, weekdayPtr(1)) // Monday
+	// Already Monday, advance 1 week -> 2024-01-08
+	want := time.Date(2024, 1, 8, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("weekly weekday=Mon from Mon interval=1: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_WeeklyCustomWeekdayInterval(t *testing.T) {
+	// from = Wednesday 2024-01-03, target weekday = Friday (5), interval = 2
+	from := time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC) // Wednesday
+	got := computeRecurringNext(from, "weekly", 2, nil, weekdayPtr(5)) // Friday
+	// Next Friday = Jan 5, then add (2-1)*7 = 7 days -> Jan 12
+	want := time.Date(2024, 1, 12, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("weekly weekday=Fri from Wed interval=2: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_WeeklySameWeekdayInterval(t *testing.T) {
+	// from = Monday 2024-01-01, target weekday = Monday, interval = 3
+	from := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	got := computeRecurringNext(from, "weekly", 3, nil, weekdayPtr(1)) // Monday
+	// Already Monday, advance 3 weeks -> 2024-01-22
+	want := time.Date(2024, 1, 22, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("weekly weekday=Mon from Mon interval=3: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_MonthlyDefault(t *testing.T) {
+	from := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	got := computeRecurringNext(from, "monthly", 1, nil, nil)
+	// dayOfMonth nil -> defaults to 1st of next month
+	want := time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("monthly interval=1 default dom: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_MonthlyWithDayOfMonth(t *testing.T) {
+	from := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	dom := 20
+	got := computeRecurringNext(from, "monthly", 1, &dom, nil)
+	want := time.Date(2024, 2, 20, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("monthly interval=1 dom=20: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_MonthlyWithInterval(t *testing.T) {
+	// interval=3 should advance by 3 months, not 1
+	from := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	dom := 10
+	got := computeRecurringNext(from, "monthly", 3, &dom, nil)
+	want := time.Date(2024, 4, 10, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("monthly interval=3 dom=10: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_MonthlyWithIntervalDayClamping(t *testing.T) {
+	// interval=2, dom=31, from in January -> next month with 31 days is March (Jan + 2)
+	from := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	dom := 31
+	got := computeRecurringNext(from, "monthly", 2, &dom, nil)
+	// from.Month() + 2 = March, March has 31 days, so should be March 31
+	want := time.Date(2024, 3, 31, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("monthly interval=2 dom=31: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_DefaultFallback(t *testing.T) {
+	from := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	got := computeRecurringNext(from, "unknown", 5, nil, nil)
+	want := from.AddDate(0, 0, 5)
+	if !got.Equal(want) {
+		t.Errorf("unknown freq: got %v, want %v", got, want)
+	}
+}
+
+func TestComputeRecurringNext_ZeroInterval(t *testing.T) {
+	from := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	got := computeRecurringNext(from, "daily", 0, nil, nil)
+	want := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC) // interval defaulted to 1
+	if !got.Equal(want) {
+		t.Errorf("daily interval=0 defaults to 1: got %v, want %v", got, want)
+	}
+}

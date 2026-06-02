@@ -48,7 +48,7 @@ func (l *SlogLogger) Error(_ context.Context, msg string, args ...interface{}) {
 	}
 }
 
-func (l *SlogLogger) Trace(_ context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
+func (l *SlogLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
 	if l.logLevel <= logger.Silent {
 		return
 	}
@@ -71,11 +71,11 @@ func (l *SlogLogger) Trace(_ context.Context, begin time.Time, fc func() (sql st
 	switch {
 	case err != nil && l.logLevel >= logger.Error:
 		attrs = append(attrs, slog.Any("error", err))
-		slog.LogAttrs(nil, slog.LevelError, "SQL query failed", attrs...)
+		slog.LogAttrs(ctx, slog.LevelError, "SQL query failed", attrs...)
 	case elapsed > l.slowThreshold && l.logLevel >= logger.Warn:
 		attrs = append(attrs, slog.Duration("threshold", l.slowThreshold))
-		slog.LogAttrs(nil, slog.LevelWarn, "Slow SQL query", attrs...)
+		slog.LogAttrs(ctx, slog.LevelWarn, "Slow SQL query", attrs...)
 	case l.logLevel >= logger.Info:
-		slog.LogAttrs(nil, slog.LevelDebug, "SQL query", attrs...)
+		slog.LogAttrs(ctx, slog.LevelDebug, "SQL query", attrs...)
 	}
 }

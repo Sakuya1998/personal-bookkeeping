@@ -34,11 +34,11 @@ func GinSlogMiddleware() gin.HandlerFunc {
 		}
 
 		if status >= 500 {
-			slog.LogAttrs(nil, slog.LevelError, "request", attrs...)
+			slog.LogAttrs(c.Request.Context(), slog.LevelError, "request", attrs...)
 		} else if status >= 400 {
-			slog.LogAttrs(nil, slog.LevelWarn, "request", attrs...)
+			slog.LogAttrs(c.Request.Context(), slog.LevelWarn, "request", attrs...)
 		} else {
-			slog.LogAttrs(nil, slog.LevelInfo, "request", attrs...)
+			slog.LogAttrs(c.Request.Context(), slog.LevelInfo, "request", attrs...)
 		}
 	}
 }
