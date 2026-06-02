@@ -30,6 +30,9 @@ type InMemoryQueue struct {
 // NewInMemory creates an in-memory queue with the given number of workers.
 // maxRetries controls how many times a failed task is retried (0 = no retry).
 func NewInMemory(workers, maxRetries int) *InMemoryQueue {
+	if workers <= 0 {
+		workers = 1
+	}
 	return &InMemoryQueue{
 		handlers:   make(map[string]HandlerFunc),
 		taskCh:     make(chan Task, 1000),

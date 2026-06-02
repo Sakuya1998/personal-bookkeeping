@@ -133,8 +133,7 @@ func storeRates(db *gorm.DB, base string, rates map[string]float64, date, source
 	}
 
 	now := time.Now()
-	created := 0
-	updated := 0
+	count := 0
 	sourceStr := source
 
 	for currency, rate := range rates {
@@ -177,14 +176,10 @@ func storeRates(db *gorm.DB, base string, rates map[string]float64, date, source
 				slog.Warn("store rate failed", "from", p.from, "to", p.to, "error", err)
 				continue
 			}
-			if db.RowsAffected == 1 {
-				created++
-			} else {
-				updated++
-			}
+			count++
 		}
 	}
 
-	slog.Info("exchange rates updated", "base", base, "currencies", len(rates), "created", created, "updated", updated, "source", source)
+	slog.Info("exchange rates updated", "base", base, "currencies", len(rates), "pairs", count, "source", source)
 	return nil
 }

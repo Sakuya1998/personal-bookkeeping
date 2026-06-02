@@ -85,11 +85,13 @@ func StartExchangeRateScheduler(ctx context.Context, q queue.Queue) {
 
 		slog.Info("exchange rate scheduler started", "first_run_in", firstDelay)
 
+		timer := time.NewTimer(firstDelay)
 		select {
 		case <-ctx.Done():
 			slog.Info("exchange rate scheduler stopped")
+			timer.Stop()
 			return
-		case <-time.After(firstDelay):
+		case <-timer.C:
 			dispatchExchangeRateUpdate(ctx, q)
 		}
 

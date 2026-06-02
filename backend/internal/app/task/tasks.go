@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strconv"
@@ -208,13 +209,20 @@ func writeJSON(transactions []models.Transaction) error {
 }
 
 func parseCSV(content, userID, ledgerID string) ([]models.Transaction, error) {
+	const maxBytes = 10 * 1024 * 1024 // 10MB
+	if len(content) > maxBytes {
+		return nil, fmt.Errorf("csv content too large: %d bytes exceeds %d byte limit", len(content), maxBytes)
+	}
+
 	reader := csv.NewReader(strings.NewReader(content))
-	records, err := reader.ReadAll()
+
+	// Read header
+	_, err := reader.Read()
+	if err == io.EOF {
+		return nil, nil // empty content
+	}
 	if err != nil {
 		return nil, fmt.Errorf("csv read: %w", err)
-	}
-	if len(records) < 2 {
-		return nil, nil // header only or empty
 	}
 
 	uid := uuid.MustParse(userID)
@@ -222,7 +230,14 @@ func parseCSV(content, userID, ledgerID string) ([]models.Transaction, error) {
 	now := time.Now()
 	var txns []models.Transaction
 
-	for _, row := range records[1:] {
+	for {
+		row, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("csv read: %w", err)
+		}
 		if len(row) < 5 {
 			continue
 		}

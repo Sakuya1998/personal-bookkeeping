@@ -43,8 +43,7 @@ func (s *ExchangeRateService) List(date, from, to string) ([]models.ExchangeRate
 
 // Create creates or updates an exchange rate.
 // Uses upsert on (from_currency, to_currency) — only the latest rate is kept per pair.
-// Returns (rate, wasUpdated, error).
-func (s *ExchangeRateService) Create(fromCurrency, toCurrency string, rate float64, date string, source *string) (*models.ExchangeRate, bool, error) {
+func (s *ExchangeRateService) Create(fromCurrency, toCurrency string, rate float64, date string, source *string) (*models.ExchangeRate, error) {
 	if date == "" {
 		date = time.Now().Format("2006-01-02")
 	}
@@ -72,12 +71,11 @@ func (s *ExchangeRateService) Create(fromCurrency, toCurrency string, rate float
 		}),
 	}).Create(&newRate).Error
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to upsert exchange rate: %w", err)
+		return nil, fmt.Errorf("failed to upsert exchange rate: %w", err)
 	}
 
-	wasUpdated := s.DB.RowsAffected != 1
 	s.invalidateCache(fromCurrency, toCurrency, date)
-	return &newRate, wasUpdated, nil
+	return &newRate, nil
 }
 
 	// Latest returns the latest exchange rate for each currency pair.

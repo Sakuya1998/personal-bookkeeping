@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"personal-bookkeeping/internal/app/models"
@@ -371,38 +373,28 @@ func (h *LedgerHandler) Tags(c *gin.Context) {
 var csvHeader = []string{"id", "date", "type", "amount", "currency", "base_amount", "description", "category_id"}
 
 func writeCSVStream(c *gin.Context, transactions []models.Transaction) {
-	c.Writer.WriteString(stringsJoin(csvHeader, ",") + "\n")
+	w := csv.NewWriter(c.Writer)
+	w.Write(csvHeader)
 	for _, t := range transactions {
-		c.Writer.WriteString(csvRow(t))
+		desc := ""
+		if t.Description != nil {
+			desc = *t.Description
+		}
+		w.Write([]string{
+			t.ID.String(),
+			t.TransactionDate,
+			t.Type,
+			fmt.Sprintf("%.2f", t.Amount),
+			t.Currency,
+			fmt.Sprintf("%.2f", t.BaseAmount),
+			desc,
+			t.CategoryID.String(),
+		})
 	}
-}
-
-func csvRow(t models.Transaction) string {
-	desc := ""
-	if t.Description != nil {
-		desc = *t.Description
+	w.Flush()
+	if err := w.Error(); err != nil {
+		slog.Error("csv export flush error", "error", err)
 	}
-	return stringsJoin([]string{
-		t.ID.String(),
-		t.TransactionDate,
-		t.Type,
-		fmt.Sprintf("%.2f", t.Amount),
-		t.Currency,
-		fmt.Sprintf("%.2f", t.BaseAmount),
-		desc,
-		t.CategoryID.String(),
-	}, ",") + "\n"
-}
-
-func stringsJoin(parts []string, sep string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	out := parts[0]
-	for i := 1; i < len(parts); i++ {
-		out += sep + parts[i]
-	}
-	return out
 }
 
 func splitTags(raw string) []string {
