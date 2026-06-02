@@ -75,6 +75,8 @@ func userCacheKey(userID string) string { return "user:" + userID }
 
 // getUserWithCache returns the user model, caching the result for userCacheTTL.
 // On cache miss, queries DB and populates cache.
+// Non-existent users are cached with a short TTL (cache.NullSentinel) to prevent
+// cache penetration.
 func getUserWithCache(ctx context.Context, userID, username string) (*models.User, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
@@ -83,13 +85,19 @@ func getUserWithCache(ctx context.Context, userID, username string) (*models.Use
 
 	// Check cache
 	if cacheInst := cache.GetDefault(); cacheInst != nil {
-		if data, err := cacheInst.Get(ctx, userCacheKey(userID)); err == nil && data != "" {
-			// Fast path: cache hit — build user from cached fields
-			return &models.User{
-				ID:       uid,
-				Username: username,
-				IsActive: true,
-			}, nil
+		if data, err := cacheInst.Get(ctx, userCacheKey(userID)); err == nil {
+			if data == cache.NullSentinel {
+				// Cached miss — DB already confirmed this user doesn't exist
+				return nil, gorm.ErrRecordNotFound
+			}
+			if data != "" {
+				// Fast path: cache hit — build user from cached fields
+				return &models.User{
+					ID:       uid,
+					Username: username,
+					IsActive: true,
+				}, nil
+			}
 		}
 	}
 
@@ -97,6 +105,10 @@ func getUserWithCache(ctx context.Context, userID, username string) (*models.Use
 	var user models.User
 	if err := database.GetDB().First(&user, "id = ?", uid).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Cache the miss to absorb repeated requests for non-existent users
+			if cacheInst := cache.GetDefault(); cacheInst != nil {
+				_ = cacheInst.Set(ctx, userCacheKey(userID), cache.NullSentinel, cache.NullCacheTTL)
+			}
 			return nil, err
 		}
 		return nil, err

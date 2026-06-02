@@ -49,6 +49,13 @@ func KeyTokenBlacklist(jti string) string {
 	return "token:blacklist:" + jti
 }
 
+// NullSentinel is cached when a DB lookup returns no result, preventing
+// cache penetration (repeated DB queries for non-existent keys).
+const NullSentinel = "__NULL__"
+
+// NullCacheTTL is how long null entries are kept to absorb burst traffic.
+const NullCacheTTL = 30 * time.Second
+
 // defaultCache is the package-level default cache instance.
 var defaultCache Cache
 

@@ -100,6 +100,9 @@ func getExchangeRate(p RateProvider, fromCurrency, toCurrency, date string) (flo
 	if c != nil {
 		key := cch.KeyExchangeRate(fromCurrency, toCurrency, date)
 		if val, err := c.Get(context.Background(), key); err == nil {
+			if val == cch.NullSentinel {
+				return 0, fmt.Errorf("exchange rate not found")
+			}
 			if r, parseErr := strconv.ParseFloat(val, 64); parseErr == nil {
 				return r, nil
 			}
@@ -110,6 +113,10 @@ func getExchangeRate(p RateProvider, fromCurrency, toCurrency, date string) (flo
 	if err != nil {
 		reverse, err2 := p.QueryReverseRate(fromCurrency, toCurrency, date)
 		if err2 != nil {
+			// Cache the miss to prevent penetration
+			if c != nil {
+				_ = c.Set(context.Background(), cch.KeyExchangeRate(fromCurrency, toCurrency, date), cch.NullSentinel, cch.NullCacheTTL)
+			}
 			return 0, err2
 		}
 		if reverse.Rate > 0 {
