@@ -1,7 +1,5 @@
 import { test, expect, APIRequestContext } from '@playwright/test';
 import {
-  registerUser,
-  loginUser,
   authContext,
   expectOK,
   testHelpers,
