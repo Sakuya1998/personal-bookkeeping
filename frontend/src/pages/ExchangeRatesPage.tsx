@@ -35,7 +35,9 @@ const ExchangeRatesPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    loadRates().catch(err => { console.error('获取汇率失败:', err); message.error(t('common.failed')); });
+    let cancelled = false;
+    loadRates().catch(err => { if (cancelled) return; console.error('获取汇率失败:', err); message.error(t('common.failed')); });
+    return () => { cancelled = true; };
   }, [loadRates]);
 
   const handleSync = async () => {

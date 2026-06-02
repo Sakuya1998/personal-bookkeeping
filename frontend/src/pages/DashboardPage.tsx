@@ -40,6 +40,7 @@ const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     if (!currentLedger) return;
+    let cancelled = false;
     setLoading(true);
     Promise.all([
       client.get<ApiResponse<LedgerSummary>>(`/ledgers/${currentLedger.id}/summary`),
@@ -47,12 +48,14 @@ const DashboardPage: React.FC = () => {
       client.get<ApiResponse<CategoryBreakdownItem[]>>(`/ledgers/${currentLedger.id}/category-breakdown`),
     ])
       .then(([sumRes, trendRes, catRes]) => {
+        if (cancelled) return;
         setSummary(sumRes.data.data);
         setMonthlyTrend(trendRes.data.data || []);
         setCategoryBreakdown(catRes.data.data || []);
       })
-      .catch(err => { console.error(t('dashboard.fetchDataFailed'), err); message.error(t('dashboard.fetchDataFailed')); })
-      .finally(() => setLoading(false));
+      .catch(err => { if (cancelled) return; console.error(t('dashboard.fetchDataFailed'), err); message.error(t('dashboard.fetchDataFailed')); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [currentLedger, t]);
 
   const handleExport = async () => {

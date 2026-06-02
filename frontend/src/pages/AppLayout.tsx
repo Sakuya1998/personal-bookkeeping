@@ -61,8 +61,7 @@ const AppLayout: React.FC = () => {
     client.get<ApiResponse<Ledger[]>>('/ledgers').then((res) => {
       setLedgers(res.data.data);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token]);
 
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: t('nav.dashboard') },

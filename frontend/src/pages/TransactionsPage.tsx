@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Table, Button, Modal, Form, Input, InputNumber, Select, DatePicker, Tag, Space, message, Popconfirm, Skeleton } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TagsOutlined, CameraOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -47,11 +47,13 @@ const TransactionsPage: React.FC = () => {
 
   useEffect(() => {
     if (!currentLedger) return;
-    queueMicrotask(() => setSelectedRowKeys([]));
+    let cancelled = false;
+    queueMicrotask(() => { if (cancelled) return; setSelectedRowKeys([]); });
     loadTxns();
     client.get<ApiResponse<Category[]>>(`/ledgers/${currentLedger.id}/categories`)
-      .then((res) => setCategories(res.data.data))
-      .catch(err => { console.error('获取分类失败:', err); message.error(t('common.failed')); });
+      .then((res) => { if (!cancelled) setCategories(res.data.data); })
+      .catch(err => { if (cancelled) return; console.error('获取分类失败:', err); message.error(t('common.failed')); });
+    return () => { cancelled = true; };
   }, [currentLedger, page, pageSize, filters, loadTxns]);
 
   const handleSubmit = async (values: Record<string, unknown>) => {
@@ -198,7 +200,7 @@ const TransactionsPage: React.FC = () => {
     ? [dayjs(filters.start_date), dayjs(filters.end_date)]
     : null;
 
-  const columns = [
+  const columns = useMemo(() => [
     { title: t('transactions.date'), dataIndex: 'transaction_date', key: 'date', width: 110 },
     { title: t('transactions.category'), key: 'category', width: 120, render: (_: unknown, r: Transaction) => {
       const cat = r.category;
@@ -248,7 +250,7 @@ const TransactionsPage: React.FC = () => {
         </Space>
       ),
     },
-  ];
+  ], [t, currentLedger, filters, openEdit, handleDelete]);
 
   const rowSelection = {
     selectedRowKeys,

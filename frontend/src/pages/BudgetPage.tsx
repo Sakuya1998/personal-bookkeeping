@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Table, Button, Modal, Form, Select, InputNumber,
   message, Popconfirm, Space, Row, Col, Progress, Skeleton, Empty, Tag, DatePicker,
@@ -14,6 +14,14 @@ import PageLayout from '../components/layout/PageLayout';
 import PageTitle from '../components/layout/PageTitle';
 import PageToolbar from '../components/layout/PageToolbar';
 import ContentCard from '../components/layout/ContentCard';
+
+const formatPct = (pct: number) => `${Math.min(pct, 999).toFixed(1)}%`;
+
+const getColor = (pct: number) => {
+  if (pct >= 100) return '#ff4d4f';
+  if (pct >= 80) return '#faad14';
+  return '#52c41a';
+};
 
 const BudgetPage: React.FC = () => {
   const { t } = useTranslation();
@@ -90,7 +98,7 @@ const BudgetPage: React.FC = () => {
 
   const expenseCategories = categories.filter((c) => c.type === 'expense');
 
-  const budgetColumns = [
+  const budgetColumns = useMemo(() => [
     {
       title: t('budgets.category'), key: 'category', width: 150,
       render: (_: unknown, r: Budget) => {
@@ -117,17 +125,9 @@ const BudgetPage: React.FC = () => {
         </Popconfirm>;
       },
     },
-  ];
+  ], [t, categories, canManage, handleDelete]);
 
-  const formatPct = (pct: number) => `${Math.min(pct, 999).toFixed(1)}%`;
-
-  const getColor = (pct: number) => {
-    if (pct >= 100) return '#ff4d4f';
-    if (pct >= 80) return '#faad14';
-    return '#52c41a';
-  };
-
-  const statusColumns = [
+  const statusColumns = useMemo(() => [
     {
       title: t('budgets.category'),
       key: 'category',
@@ -174,7 +174,7 @@ const BudgetPage: React.FC = () => {
         );
       },
     },
-  ];
+  ], [t, getColor, formatPct]);
 
   return (
     <PageLayout

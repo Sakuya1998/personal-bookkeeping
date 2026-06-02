@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Card, Button, Row, Col, Spin, Empty, Tag, message } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
@@ -24,6 +24,8 @@ const CalendarViewPage: React.FC = () => {
   const [dayTxns, setDayTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const dateClickFetchRef = useRef<{ cancelled: boolean }>({ cancelled: false });
+
   const urlLedgerId = ledger_id || '';
 
   const ledgerFromUrl = useMemo(() => {
@@ -40,7 +42,9 @@ const CalendarViewPage: React.FC = () => {
   // Fetch daily data — defer all setState to microtasks
   useEffect(() => {
     if (!urlLedgerId) return;
+    let cancelled = false;
     queueMicrotask(() => {
+      if (cancelled) return;
       setLoading(true);
       setDailyData([]);
       setSelectedDate(null);
@@ -50,21 +54,25 @@ const CalendarViewPage: React.FC = () => {
       .get<ApiResponse<DailyTransactionItem[]>>(
         `/ledgers/${urlLedgerId}/daily-transactions?year=${currentMonth.year()}&month=${currentMonth.month() + 1}`,
       )
-      .then((res) => setDailyData(res.data.data || []))
-      .catch(err => { console.error(t('calendar.fetchDailyDataFailed'), err); message.error(t('calendar.fetchDailyDataFailed')); })
-      .finally(() => setLoading(false));
+      .then((res) => { if (!cancelled) setDailyData(res.data.data || []); })
+      .catch(err => { if (cancelled) return; console.error(t('calendar.fetchDailyDataFailed'), err); message.error(t('calendar.fetchDailyDataFailed')); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [urlLedgerId, currentMonth]);
 
   // Fetch transactions for selected date
   const handleDateClick = (dateStr: string) => {
     if (!urlLedgerId || !dateStr) return;
+    dateClickFetchRef.current.cancelled = true;
+    const current = { cancelled: false };
+    dateClickFetchRef.current = current;
     setSelectedDate(dateStr);
     client
       .get<ApiResponse<{ items: Transaction[] }>>(
         `/ledgers/${urlLedgerId}/transactions?start_date=${dateStr}&end_date=${dateStr}&page_size=50`,
       )
-      .then((res) => setDayTxns(res.data.data?.items || []))
-      .catch(err => { console.error(t('calendar.fetchDateTransactionsFailed'), err); message.error(t('calendar.fetchDateTransactionsFailed')); });
+      .then((res) => { if (!current.cancelled) setDayTxns(res.data.data?.items || []); })
+      .catch(err => { if (current.cancelled) return; console.error(t('calendar.fetchDateTransactionsFailed'), err); message.error(t('calendar.fetchDateTransactionsFailed')); });
   };
 
   // Build calendar data map

@@ -89,7 +89,7 @@ const CategoriesPage: React.FC = () => {
     setModalOpen(true);
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     { title: t('categories.icon'), dataIndex: 'icon', key: 'icon', width: 60, render: (v: string) => v || '-' },
     { title: t('categories.name'), dataIndex: 'name', key: 'name' },
     { title: t('categories.sort'), dataIndex: 'sort_order', key: 'sort', width: 60 },
@@ -105,7 +105,7 @@ const CategoriesPage: React.FC = () => {
         </Space>;
       },
     },
-  ];
+  ], [t, canManage, openEdit, handleDelete]);
 
   const dataSource = useMemo(() => (type === 'expense' ? expense : income), [type, expense, income]);
 
