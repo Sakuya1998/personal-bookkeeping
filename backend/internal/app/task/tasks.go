@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -171,7 +172,18 @@ func writeCSV(transactions []models.Transaction) error {
 	if err := w.Error(); err != nil {
 		return fmt.Errorf("csv write: %w", err)
 	}
-	slog.Info("export csv done", "rows", len(transactions))
+
+	tmpFile, err := os.CreateTemp("", "export-*.csv")
+	if err != nil {
+		return fmt.Errorf("export csv: create temp file: %w", err)
+	}
+	defer tmpFile.Close()
+
+	if _, err := tmpFile.WriteString(out.String()); err != nil {
+		return fmt.Errorf("export csv: write temp file: %w", err)
+	}
+
+	slog.Info("export csv done", "rows", len(transactions), "path", tmpFile.Name())
 	return nil
 }
 
@@ -180,7 +192,18 @@ func writeJSON(transactions []models.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("json marshal: %w", err)
 	}
-	slog.Info("export json done", "bytes", len(data), "rows", len(transactions))
+
+	tmpFile, err := os.CreateTemp("", "export-*.json")
+	if err != nil {
+		return fmt.Errorf("export json: create temp file: %w", err)
+	}
+	defer tmpFile.Close()
+
+	if _, err := tmpFile.Write(data); err != nil {
+		return fmt.Errorf("export json: write temp file: %w", err)
+	}
+
+	slog.Info("export json done", "bytes", len(data), "rows", len(transactions), "path", tmpFile.Name())
 	return nil
 }
 

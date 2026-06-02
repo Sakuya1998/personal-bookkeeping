@@ -15,6 +15,7 @@ type RateLimiter struct {
 	visitors map[string][]time.Time
 	rate     int           // 窗口内允许的最大请求数
 	window   time.Duration // 滑动窗口时长
+	stopCh   chan struct{}
 }
 
 func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
@@ -22,6 +23,7 @@ func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
 		visitors: make(map[string][]time.Time),
 		rate:     rate,
 		window:   window,
+		stopCh:   make(chan struct{}),
 	}
 	go rl.cleanup()
 	return rl
@@ -30,22 +32,32 @@ func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
 func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
-		rl.mu.Lock()
-		cutoff := time.Now().Add(-rl.window)
-		for ip, times := range rl.visitors {
-			j := 0
-			for j < len(times) && times[j].Before(cutoff) {
-				j++
+	for {
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			cutoff := time.Now().Add(-rl.window)
+			for ip, times := range rl.visitors {
+				j := 0
+				for j < len(times) && times[j].Before(cutoff) {
+					j++
+				}
+				if j == len(times) {
+					delete(rl.visitors, ip)
+				} else {
+					rl.visitors[ip] = times[j:]
+				}
 			}
-			if j == len(times) {
-				delete(rl.visitors, ip)
-			} else {
-				rl.visitors[ip] = times[j:]
-			}
+			rl.mu.Unlock()
+		case <-rl.stopCh:
+			return
 		}
-		rl.mu.Unlock()
 	}
+}
+
+// Stop 停止后台清理 goroutine，防止协程泄漏。
+func (rl *RateLimiter) Stop() {
+	close(rl.stopCh)
 }
 
 // Allow 检查 IP 是否在限流窗口内。
