@@ -111,7 +111,7 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 
 	// Get ledger name (with ownership check)
 	var ledgerName string
-	result := db.Raw("SELECT name FROM ledgers WHERE id = ? AND user_id = ?", ledgerID, userID).Scan(&ledgerName)
+	result := db.Raw("SELECT name FROM ledgers WHERE id = ? AND user_id = ? AND deleted_at IS NULL", ledgerID, userID).Scan(&ledgerName)
 	if result.RowsAffected == 0 {
 		return nil, fmt.Errorf("ledger not found or access denied")
 	}
@@ -119,19 +119,19 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 	// This period totals
 	var incomeTotal, expenseTotal float64
 	db.Raw(`SELECT COALESCE(SUM(base_amount),0) FROM transactions
-		WHERE ledger_id=? AND user_id=? AND type='income' AND transaction_date>=? AND transaction_date<?`,
+		WHERE ledger_id=? AND user_id=? AND type='income' AND transaction_date>=? AND transaction_date<? AND deleted_at IS NULL`,
 		ledgerID, userID, startDate, endDate).Scan(&incomeTotal)
 	db.Raw(`SELECT COALESCE(SUM(base_amount),0) FROM transactions
-		WHERE ledger_id=? AND user_id=? AND type='expense' AND transaction_date>=? AND transaction_date<?`,
+		WHERE ledger_id=? AND user_id=? AND type='expense' AND transaction_date>=? AND transaction_date<? AND deleted_at IS NULL`,
 		ledgerID, userID, startDate, endDate).Scan(&expenseTotal)
 
 	// Previous period totals for comparison
 	var prevIncome, prevExpense float64
 	db.Raw(`SELECT COALESCE(SUM(base_amount),0) FROM transactions
-		WHERE ledger_id=? AND user_id=? AND type='income' AND transaction_date>=? AND transaction_date<?`,
+		WHERE ledger_id=? AND user_id=? AND type='income' AND transaction_date>=? AND transaction_date<? AND deleted_at IS NULL`,
 		ledgerID, userID, prevStart, prevEnd).Scan(&prevIncome)
 	db.Raw(`SELECT COALESCE(SUM(base_amount),0) FROM transactions
-		WHERE ledger_id=? AND user_id=? AND type='expense' AND transaction_date>=? AND transaction_date<?`,
+		WHERE ledger_id=? AND user_id=? AND type='expense' AND transaction_date>=? AND transaction_date<? AND deleted_at IS NULL`,
 		ledgerID, userID, prevStart, prevEnd).Scan(&prevExpense)
 
 	// Category breakdown
@@ -146,7 +146,7 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 		COALESCE(SUM(t.base_amount),0) as total
 		FROM transactions t
 		LEFT JOIN categories c ON c.id = t.category_id
-		WHERE t.ledger_id=? AND t.user_id=? AND t.transaction_date>=? AND t.transaction_date<?
+		WHERE t.ledger_id=? AND t.user_id=? AND t.transaction_date>=? AND t.transaction_date<? AND t.deleted_at IS NULL
 		GROUP BY t.category_id, c.name, c.icon, t.type
 		ORDER BY total DESC`, ledgerID, userID, startDate, endDate).Scan(&catRows)
 
@@ -181,7 +181,7 @@ func BuildReportData(db *gorm.DB, ledgerID, userID uuid.UUID, period ReportPerio
 			COALESCE(SUM(CASE WHEN type='income' THEN base_amount ELSE 0 END), 0) AS income,
 			COALESCE(SUM(CASE WHEN type='expense' THEN base_amount ELSE 0 END), 0) AS expense
 			FROM transactions
-			WHERE ledger_id=? AND user_id=? AND transaction_date>=? AND transaction_date<?
+			WHERE ledger_id=? AND user_id=? AND transaction_date>=? AND transaction_date<? AND deleted_at IS NULL
 			GROUP BY to_char(transaction_date, 'YYYY-MM')
 			ORDER BY month`, ledgerID, userID, startDate, endDate).Scan(&monthRows)
 		for _, r := range monthRows {

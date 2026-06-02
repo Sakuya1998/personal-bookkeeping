@@ -80,13 +80,14 @@ func (s *ExchangeRateService) Create(fromCurrency, toCurrency string, rate float
 	return &newRate, wasUpdated, nil
 }
 
-// Latest returns the latest exchange rate for each currency pair.
+	// Latest returns the latest exchange rate for each currency pair.
 func (s *ExchangeRateService) Latest() ([]LatestRate, error) {
 	var rates []LatestRate
 	if err := s.DB.Raw(`
 		SELECT DISTINCT ON (from_currency, to_currency)
 			from_currency, to_currency, rate, date
 		FROM exchange_rates
+		WHERE deleted_at IS NULL
 		ORDER BY from_currency, to_currency, date DESC
 	`).Scan(&rates).Error; err != nil {
 		return nil, fmt.Errorf("failed to query latest rates: %w", err)

@@ -80,14 +80,14 @@ func (s *BudgetService) Status(ledgerID, userID uuid.UUID, month string) ([]Budg
 	var budgets []budgetRow
 	s.DB.Raw(`SELECT b.id AS budget_id, b.category_id, b.amount
 		FROM budgets b
-		WHERE b.user_id = ? AND b.ledger_id = ? AND b.month = ? AND b.category_id IS NOT NULL`,
+		WHERE b.user_id = ? AND b.ledger_id = ? AND b.month = ? AND b.category_id IS NOT NULL AND b.deleted_at IS NULL`,
 		userID, ledgerID, month).Scan(&budgets)
 
 	for _, b := range budgets {
 		var spent float64
 		s.DB.Raw(`SELECT COALESCE(SUM(base_amount), 0) FROM transactions
 			WHERE user_id = ? AND ledger_id = ? AND category_id = ? AND type = 'expense'
-			AND transaction_date >= ? AND transaction_date < ?`,
+			AND transaction_date >= ? AND transaction_date < ? AND deleted_at IS NULL`,
 			userID, ledgerID, b.CategoryID, startDate, endDate).Scan(&spent)
 
 		var cat models.Category
@@ -116,13 +116,13 @@ func (s *BudgetService) Status(ledgerID, userID uuid.UUID, month string) ([]Budg
 		Amount   float64
 	}
 	err := s.DB.Raw(`SELECT id AS budget_id, amount FROM budgets
-		WHERE user_id = ? AND ledger_id = ? AND month = ? AND category_id IS NULL`,
+		WHERE user_id = ? AND ledger_id = ? AND month = ? AND category_id IS NULL AND deleted_at IS NULL`,
 		userID, ledgerID, month).Scan(&globalBudget).Error
 	if err == nil && globalBudget.Amount > 0 {
 		var totalSpent float64
 		s.DB.Raw(`SELECT COALESCE(SUM(base_amount), 0) FROM transactions
 			WHERE user_id = ? AND ledger_id = ? AND type = 'expense'
-			AND transaction_date >= ? AND transaction_date < ?`,
+			AND transaction_date >= ? AND transaction_date < ? AND deleted_at IS NULL`,
 			userID, ledgerID, startDate, endDate).Scan(&totalSpent)
 
 		pct := 0.0
@@ -166,14 +166,14 @@ func (s *BudgetService) CheckBudgetOverrun(userID, ledgerID, categoryID uuid.UUI
 	// Check category-level budget
 	var catBudget float64
 	s.DB.Raw(`SELECT COALESCE(amount, 0) FROM budgets
-		WHERE user_id = ? AND ledger_id = ? AND category_id = ? AND month = ?`,
+		WHERE user_id = ? AND ledger_id = ? AND category_id = ? AND month = ? AND deleted_at IS NULL`,
 		userID, ledgerID, categoryID, month).Scan(&catBudget)
 
 	if catBudget > 0 {
 		var currentSpent float64
 		s.DB.Raw(`SELECT COALESCE(SUM(base_amount), 0) FROM transactions
 			WHERE user_id = ? AND ledger_id = ? AND category_id = ? AND type = 'expense'
-			AND transaction_date >= ? AND transaction_date < ?`,
+			AND transaction_date >= ? AND transaction_date < ? AND deleted_at IS NULL`,
 			userID, ledgerID, categoryID, startDate, endDate).Scan(&currentSpent)
 
 		if currentSpent+amount > catBudget {
@@ -184,14 +184,14 @@ func (s *BudgetService) CheckBudgetOverrun(userID, ledgerID, categoryID uuid.UUI
 	// Check global budget
 	var globalBudget float64
 	s.DB.Raw(`SELECT COALESCE(amount, 0) FROM budgets
-		WHERE user_id = ? AND ledger_id = ? AND category_id IS NULL AND month = ?`,
+		WHERE user_id = ? AND ledger_id = ? AND category_id IS NULL AND month = ? AND deleted_at IS NULL`,
 		userID, ledgerID, month).Scan(&globalBudget)
 
 	if globalBudget > 0 {
 		var totalSpent float64
 		s.DB.Raw(`SELECT COALESCE(SUM(base_amount), 0) FROM transactions
 			WHERE user_id = ? AND ledger_id = ? AND type = 'expense'
-			AND transaction_date >= ? AND transaction_date < ?`,
+			AND transaction_date >= ? AND transaction_date < ? AND deleted_at IS NULL`,
 			userID, ledgerID, startDate, endDate).Scan(&totalSpent)
 
 		if totalSpent+amount > globalBudget {

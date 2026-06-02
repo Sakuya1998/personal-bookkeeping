@@ -233,7 +233,7 @@ func (s *LedgerService) Summary(ledgerID, userID uuid.UUID) (*LedgerSummary, err
 		       COALESCE(SUM(t.base_amount),0) as total, COUNT(*) as count
 		FROM transactions t
 		JOIN categories c ON c.id = t.category_id
-		WHERE t.ledger_id = ? AND t.type = 'expense'
+		WHERE t.ledger_id = ? AND t.type = 'expense' AND t.deleted_at IS NULL
 		GROUP BY t.category_id, c.name, c.icon
 		ORDER BY total DESC
 	`, ledgerID).Scan(&expenseByCategory)
@@ -363,7 +363,7 @@ func (s *LedgerService) MonthlyTrend(ledgerID, userID uuid.UUID, months int) ([]
 			COALESCE(SUM(CASE WHEN type = 'income'  THEN base_amount ELSE 0 END), 0) AS total_income,
 			COALESCE(SUM(CASE WHEN type = 'expense' THEN base_amount ELSE 0 END), 0) AS total_expense
 		FROM transactions
-		WHERE ledger_id = ? AND user_id = ? AND transaction_date >= ? AND transaction_date < ?
+		WHERE ledger_id = ? AND user_id = ? AND transaction_date >= ? AND transaction_date < ? AND deleted_at IS NULL
 		GROUP BY month
 		ORDER BY month ASC
 	`, ledgerID, userID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02")).Scan(&rows)
@@ -524,7 +524,7 @@ func (s *LedgerService) DailyTransactions(ledgerID, userID uuid.UUID, year, mont
 			COALESCE(SUM(CASE WHEN type = 'expense' THEN base_amount ELSE 0 END), 0) AS total_expense,
 			COUNT(*) AS txn_count
 		FROM transactions
-		WHERE ledger_id = ? AND user_id = ? AND transaction_date >= ? AND transaction_date < ?
+		WHERE ledger_id = ? AND user_id = ? AND transaction_date >= ? AND transaction_date < ? AND deleted_at IS NULL
 		GROUP BY transaction_date
 		ORDER BY transaction_date ASC
 	`, ledgerID, userID, startDate, endDate).Scan(&rows)
