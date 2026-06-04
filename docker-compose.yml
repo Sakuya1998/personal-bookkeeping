@@ -55,6 +55,7 @@ services:
       CACHE_TYPE: redis
       CACHE_REDIS_ADDR: redis:6379
       OCR_ENDPOINT: http://paddleocr:5000
+      EXCHANGE_RATE_API_KEY: "${EXCHANGE_RATE_API_KEY}"
     ports:
       - "8000:8000"
     healthcheck:

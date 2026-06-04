@@ -228,6 +228,7 @@ func Load() *Config {
 		"queue.redis.stream":        "QUEUE_REDIS_STREAM",
 		"queue.redis.consumer_group": "QUEUE_REDIS_CONSUMER_GROUP",
 		"ocr.endpoint":              "OCR_ENDPOINT",
+		"exchange_rate.api_key":     "EXCHANGE_RATE_API_KEY",
 	}
 	for key, env := range envBindings {
 		if err := v.BindEnv(key, env); err != nil {
