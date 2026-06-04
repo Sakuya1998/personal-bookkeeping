@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS ledgers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ledgers_user_id ON ledgers (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ledgers_user_name ON ledgers (user_id, name);
 
 -- ============================================================
 -- categories
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories (user_id);
 CREATE INDEX IF NOT EXISTS idx_categories_ledger_id ON categories (ledger_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_ledger_name_type ON categories (ledger_id, name, type);
 
 -- ============================================================
 -- transactions
@@ -149,7 +151,9 @@ CREATE TABLE IF NOT EXISTS budgets (
     month       VARCHAR(7)    NOT NULL,
     amount      DECIMAL(18,2) NOT NULL,
     created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT ck_budget_month_format CHECK (month ~ '^[0-9]{4}-[0-9]{2}$')
 );
 
 CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets (user_id);
@@ -167,7 +171,9 @@ CREATE TABLE IF NOT EXISTS ledger_members (
     invited_by UUID,
     joined_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT ck_ledger_member_role CHECK (role IN ('owner', 'admin', 'member'))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_user ON ledger_members (ledger_id, user_id);
