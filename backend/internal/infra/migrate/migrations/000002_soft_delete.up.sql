@@ -40,7 +40,7 @@ ALTER TABLE exchange_rates ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_exchange_rates_deleted_at ON exchange_rates (deleted_at);
 
 DROP INDEX IF EXISTS idx_exchange_rate_pair;
-CREATE UNIQUE INDEX idx_exchange_rate_pair ON exchange_rates (from_currency, to_currency) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_exchange_rate_pair ON exchange_rates (from_currency, to_currency);
 
 -- ============================================================
 -- recurring_rules
