@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -128,9 +129,11 @@ type OCRConfig struct {
 }
 
 func (c *Config) DSN() string {
+	// URL-format DSN works with both lib/pq and golang-migrate
+	password := url.QueryEscape(c.DB.Password)
 	return fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		c.DB.Host, c.DB.Port, c.DB.User, c.DB.Password, c.DB.Name, c.DB.SSLMode,
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		c.DB.User, password, c.DB.Host, c.DB.Port, c.DB.Name, c.DB.SSLMode,
 	)
 }
 

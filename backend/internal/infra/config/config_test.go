@@ -16,9 +16,27 @@ func TestDSN(t *testing.T) {
 		},
 	}
 	dsn := c.DSN()
-	want := "host=myhost port=5432 user=myuser password=mypass dbname=mydb sslmode=require"
+	want := "postgres://myuser:mypass@myhost:5432/mydb?sslmode=require"
 	if dsn != want {
 		t.Fatalf("DSN: got %q, want %q", dsn, want)
+	}
+}
+
+func TestDSN_PasswordSpecialChars(t *testing.T) {
+	c := &Config{
+		DB: DBConfig{
+			Host:     "localhost",
+			Port:     "5432",
+			User:     "user",
+			Password: "pass!@#",
+			Name:     "db",
+			SSLMode:  "disable",
+		},
+	}
+	dsn := c.DSN()
+	want := "postgres://user:pass%21%40%23@localhost:5432/db?sslmode=disable"
+	if dsn != want {
+		t.Fatalf("DSN password encoding: got %q, want %q", dsn, want)
 	}
 }
 
