@@ -43,6 +43,9 @@ logs/
 # Docker
 .docker/
 
+# Environment variables
+.env
+
 # Misc
 *.bak
 *.orig
