@@ -66,8 +66,7 @@ services:
       start_period: 10s
 
   paddleocr:
-    build: ./ocr
-    image: ghcr.io/sakuya1998/personal-bookkeeping/paddleocr:latest
+    image: gunthercox/ocr-service:latest-paddleocr
     restart: unless-stopped
     ports:
       - "5000"   # only internal network, not exposed to host
