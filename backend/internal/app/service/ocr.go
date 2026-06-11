@@ -47,9 +47,9 @@ func RecognizeReceipt(endpoint string, file io.Reader, filename string) (*OCRRes
 	if _, err := io.Copy(part, file); err != nil {
 		return nil, fmt.Errorf("copy file: %w", err)
 	}
-	// Specify PaddleOCR engine
+	// Specify PaddleOCR engine with Chinese language
 	writer.WriteField("engine", "paddleocr")
-	writer.WriteField("lang", "en")
+	writer.WriteField("lang", "ch")
 	writer.Close()
 
 	resp, err := http.Post(endpoint+"/", writer.FormDataContentType(), &buf)
